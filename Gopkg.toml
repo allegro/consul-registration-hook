@@ -8,3 +8,11 @@
 [[constraint]]
   name = "github.com/urfave/cli"
   version = "v1.20.0"
+
+[[constraint]]
+  name = "github.com/ericchiang/k8s"
+  version = "1.0.0"
+
+[[constraint]]
+  name = "github.com/stretchr/testify"
+  version = "1.2.1"
