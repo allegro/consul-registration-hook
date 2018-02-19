@@ -30,6 +30,59 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/hashicorp/consul"
+  packages = [
+    "api",
+    "lib/freeport",
+    "testutil",
+    "testutil/retry"
+  ]
+  revision = "9a494b5fb9c86180a5702e29c485df1507a47198"
+  version = "v1.0.6"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/go-cleanhttp"
+  packages = ["."]
+  revision = "d5fe4b57a186c716b0e00b8c301cbd9b4182694d"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/go-rootcerts"
+  packages = ["."]
+  revision = "6bb64b370b90e7ef1fa532be9e591a81c3493e00"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/go-uuid"
+  packages = ["."]
+  revision = "64130c7a86d732268a38cb04cfbaf0cc987fda98"
+
+[[projects]]
+  name = "github.com/hashicorp/serf"
+  packages = ["coordinate"]
+  revision = "d6574a5bb1226678d7010325fb6c985db20ee458"
+  version = "v0.8.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/mitchellh/go-homedir"
+  packages = ["."]
+  revision = "b8bc1bf767474819792c23f32d8286a45736f1c6"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/mitchellh/go-testing-interface"
+  packages = ["."]
+  revision = "a61a99592b77c9ba629d254a693acffaeb4b7e28"
+
+[[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
+
+[[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
@@ -66,7 +119,7 @@
     "idna",
     "lex/httplex"
   ]
-  revision = "f5dfe339be1d06f81b22525fe34671ee7d2c8904"
+  revision = "2e7f24ace30034db6c258ddb329e5236a68c27fa"
 
 [[projects]]
   branch = "master"
@@ -92,6 +145,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "dbc1df89648eec4b7cfe2c72ddb9df150f79c1817758b8dee4ec03e35c569f2c"
+  inputs-digest = "19ef1fbe7a3dc8cb7d55a60491de4475d548fac40fa3d85642933155e48f092c"
   solver-name = "gps-cdcl"
   solver-version = 1
