@@ -1,7 +1,16 @@
 language: go
 go:
-  - 1.9.x
   - 1.10.x
 
+sudo: required
+
+env:
+- CHANGE_MINIKUBE_NONE_USER=true
+
 before_script:
-  - go get github.com/hashicorp/consul && go install github.com/hashicorp/consul
+- go get github.com/hashicorp/consul && go install github.com/hashicorp/consul
+- scripts/install_local_k8s.sh
+
+script:
+- make
+- make integration-test
