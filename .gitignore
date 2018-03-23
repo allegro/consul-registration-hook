@@ -1,5 +1,6 @@
-# Build folder
+# Build folder and data
 build/
+consul-registration-hook
 
 # Binaries for programs and plugins
 *.exe
