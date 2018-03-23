@@ -14,3 +14,6 @@ lint-deps:
 
 test:
 	go test -v -cover ./...
+
+integration-test:
+	scripts/integration_test.sh
