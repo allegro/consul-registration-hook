@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myservice-pod
+  labels:
+    consul: myservice
+spec:
+  containers:
+  - name: myservice-with-hooks-container
+    image: python:2
+    command: ["python", "-m", "SimpleHTTPServer", "8080"]
+    env:
+    - name: KUBERNETES_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: KUBERNETES_POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    ports:
+    - containerPort: 8080
+    volumeMounts:
+    - name: hooks
+      mountPath: /hooks
+    lifecycle:
+      postStart:
+        exec:
+          command: ["/bin/sh", "-c", "/hooks/consul-registration-hook register k8s"]
+      preStop:
+        exec:
+          command: ["/bin/sh", "-c", "/hooks/consul-registration-hook deregister k8s"]
+  - name: consul-dev-container
+    image: consul
+    command: ["consul", "agent", "-dev"]
+    ports:
+    - containerPort: 8500
+  volumes:
+  - name: hooks
+    hostPath:
+      path: /hooks
