@@ -34,10 +34,8 @@ var commands = []cli.Command{
 					if err != nil {
 						return err
 					}
-					if err := consul.Register(services); err != nil {
-						return err
-					}
-					return nil
+					agent := consul.NewAgent()
+					return agent.Register(services)
 				},
 			},
 		},
@@ -63,10 +61,8 @@ var commands = []cli.Command{
 					if err != nil {
 						return err
 					}
-					if err := consul.Deregister(services); err != nil {
-						return err
-					}
-					return nil
+					agent := consul.NewAgent()
+					return agent.Deregister(services)
 				},
 			},
 		},
