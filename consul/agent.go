@@ -35,11 +35,19 @@ type ServiceInstance struct {
 	Check *Check
 }
 
-// Register adds passed service instances to Consul discovery service.
-func Register(services []ServiceInstance) error {
-	consulClient, _ := api.NewClient(api.DefaultConfig())
-	agent := consulClient.Agent()
+type agentClient interface {
+	ServiceRegister(*api.AgentServiceRegistration) error
+	ServiceDeregister(string) error
+}
 
+// Agent is a type responsible for registering and deregistering services in
+// Consul agent.
+type Agent struct {
+	agentClient agentClient
+}
+
+// Register adds passed service instances to Consul discovery service.
+func (a *Agent) Register(services []ServiceInstance) error {
 	for _, service := range services {
 		var check *api.AgentServiceCheck
 		if service.Check != nil {
@@ -65,7 +73,7 @@ func Register(services []ServiceInstance) error {
 			Check:   check,
 		}
 
-		if err := agent.ServiceRegister(apiServiceInstance); err != nil {
+		if err := a.agentClient.ServiceRegister(apiServiceInstance); err != nil {
 			return err
 		}
 	}
@@ -74,14 +82,11 @@ func Register(services []ServiceInstance) error {
 }
 
 // Deregister removes passed service instances from Consul discovery service.
-func Deregister(services []ServiceInstance) error {
-	consulClient, _ := api.NewClient(api.DefaultConfig())
-	agent := consulClient.Agent()
-
+func (a *Agent) Deregister(services []ServiceInstance) error {
 	var errs []error
 
 	for _, service := range services {
-		if err := agent.ServiceDeregister(service.ID); err != nil {
+		if err := a.agentClient.ServiceDeregister(service.ID); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -91,4 +96,11 @@ func Deregister(services []ServiceInstance) error {
 	}
 
 	return nil
+}
+
+// NewAgent returns a new Agent.
+func NewAgent() *Agent {
+	consulClient, _ := api.NewClient(api.DefaultConfig())
+	agent := consulClient.Agent()
+	return &Agent{agentClient: agent}
 }

@@ -8,7 +8,6 @@ env:
 - CHANGE_MINIKUBE_NONE_USER=true
 
 before_script:
-- go get github.com/hashicorp/consul && go install github.com/hashicorp/consul
 - scripts/install_local_k8s.sh
 
 script:
