@@ -12,6 +12,8 @@ import (
 	"github.com/allegro/consul-registration-hook/k8s"
 )
 
+var consulACLFileFlag = "consul-acl-file"
+
 var commands = []cli.Command{
 	{
 		Name:  "register",
@@ -34,7 +36,8 @@ var commands = []cli.Command{
 					if err != nil {
 						return err
 					}
-					agent := consul.NewAgent()
+					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
+					agent := consul.NewAgent(aclTokenFile)
 					return agent.Register(services)
 				},
 			},
@@ -61,7 +64,8 @@ var commands = []cli.Command{
 					if err != nil {
 						return err
 					}
-					agent := consul.NewAgent()
+					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
+					agent := consul.NewAgent(aclTokenFile)
 					return agent.Deregister(services)
 				},
 			},
@@ -71,6 +75,12 @@ var commands = []cli.Command{
 
 func main() {
 	app := cli.NewApp()
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  consulACLFileFlag,
+			Usage: "language for the greeting",
+		},
+	}
 	app.Name = "consul-registration-hook"
 	app.Description = "Hook that can be used for synchronous registration and deregistration in Consul discovery service on Kubernetes or Mesos cluster with Allegro executor"
 	app.Usage = ""

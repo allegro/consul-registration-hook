@@ -2,11 +2,17 @@ package consul
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/hashicorp/consul/api"
 )
+
+var consulACLTokenEnv = "CONSUL_ACL_TOKEN"
+var hostIPEnv = "HOST_IP"
 
 // CheckType is a health check type.
 type CheckType string
@@ -99,8 +105,38 @@ func (a *Agent) Deregister(services []ServiceInstance) error {
 }
 
 // NewAgent returns a new Agent.
-func NewAgent() *Agent {
-	consulClient, _ := api.NewClient(api.DefaultConfig())
+func NewAgent(tokenFile string) *Agent {
+	config := api.DefaultConfig()
+	// at this point Token is empty string, if token was not passed on commandline we will just use not secure client
+	config.Token = getAgentToken(tokenFile)
+	config.Address = getAgentAddress()
+	consulClient, _ := api.NewClient(config)
 	agent := consulClient.Agent()
 	return &Agent{agentClient: agent}
+}
+
+func getAgentToken(tokenFile string) string {
+	if !isEmpty(tokenFile) {
+		aclBinaryToken, err := ioutil.ReadFile(tokenFile)
+		if err != nil {
+			log.Print(err)
+		}
+		return string(aclBinaryToken)
+	}
+	return os.Getenv(consulACLTokenEnv)
+}
+
+// getAgentAddress is used to determine where consul agent is available,
+// currently we expect consul to be available as a DaemonSet on local node.
+func getAgentAddress() string {
+	hostIP := os.Getenv(hostIPEnv)
+	// TODO(tz) - if empty try to fetch it from internal api
+	if isEmpty(hostIP) {
+		return api.DefaultConfig().Address
+	}
+	return fmt.Sprintf("%s:8500", hostIP)
+}
+
+func isEmpty(input string) bool {
+	return len(input) == 0
 }

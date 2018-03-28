@@ -30,6 +30,8 @@ project root mounted to the Kubernetes virtual machine:
 minikube start --mount --mount-string .:/hooks
 ```
 
+### Simple usecase, consul agent in separate container in the pod
+
 Create a pod with Consul agent in development mode and hooks mounted:
 
 ```
@@ -40,6 +42,20 @@ You can login to the container with hooks using the following command:
 
 ```
 kubectl exec -it myservice-pod -- /bin/bash
+```
+
+### Consul ACL & DaemonSet usecase
+
+Create consul agent DaemonSet:
+
+```
+kubectl create -f ./examples/daemonset-with-acl-bootstrapping.yaml
+```
+
+Create service pod:
+
+```
+kubectl create -f ./examples/service-with-consul-lifecycle-hooks-and-acl-support.yaml
 ```
 
 You can find the hook binary in `/hooks` folder on the container. All required
