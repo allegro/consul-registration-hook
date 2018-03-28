@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: consul-agent
+spec:
+  selector:
+    matchLabels:
+      name: consul-agent
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: consul-agent
+    spec:
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      containers:
+      - name: consul-agent
+        image: "consul:0.9.3"
+        env:
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        args:
+          - "agent"
+          - "-dev"
+          - "-advertise=$(HOST_IP)"
+          - "-bind=0.0.0.0"
+          - "-client=0.0.0.0"
+          - "-domain=cluster.local"
+          - "-config-file" 
+          - "/hooks/examples/consul-acl.conf.json"
+          - "-datacenter=dc0"
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-x", "/hooks/examples/bootstrap-acl.sh", "/consul-acl/token"]
+        volumeMounts:
+            - name: daemon-agent-data
+              mountPath: /consul/data
+            - name: hooks
+              mountPath: /hooks
+            - name: consul-acl
+              mountPath: /consul-acl/
+        ports:
+          - containerPort: 8500
+            hostPort: 8500
+            name: ui-port
+      volumes:
+      - name: daemon-agent-data
+        hostPath:
+          path: /var/lib/consul
+          type: DirectoryOrCreate
+      - name: hooks
+        hostPath:
+          path: /hooks
+      - name: consul-acl
+        secret:
+          secretName: consul-acl
+          items:
+          - key: agent-token
+            path: token
+            mode: 511

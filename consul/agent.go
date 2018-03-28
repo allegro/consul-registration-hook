@@ -6,7 +6,13 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/api"
+	"os"
+	"io/ioutil"
+	"log"
 )
+
+var consulAclTokenEnv = "CONSUL_ACL_TOKEN"
+var hostIpEnv = "HOST_IP"
 
 // CheckType is a health check type.
 type CheckType string
@@ -99,8 +105,34 @@ func (a *Agent) Deregister(services []ServiceInstance) error {
 }
 
 // NewAgent returns a new Agent.
-func NewAgent() *Agent {
-	consulClient, _ := api.NewClient(api.DefaultConfig())
+func NewAgent(tokenFile string) *Agent {
+	config := api.DefaultConfig()
+	// at this point Token is empty string, if token was not passed on commandline we will just use not secure client
+	config.Token = getToken(tokenFile)
+	config.Address = getAddress()
+	consulClient, _ := api.NewClient(config)
 	agent := consulClient.Agent()
 	return &Agent{agentClient: agent}
+}
+
+func getToken(tokenFile string) string {
+	if tokenFile != "" {
+		aclBinaryToken, err := ioutil.ReadFile(tokenFile)
+		if err != nil {
+			log.Print(err)
+		}
+		return string(aclBinaryToken)
+	} else {
+		return os.Getenv(consulAclTokenEnv)
+	}
+}
+
+func getAddress() string {
+	hostIp := os.Getenv(hostIpEnv)
+	if len(hostIp) == 0 {
+		return api.DefaultConfig().Address
+	} else {
+		return fmt.Sprintf("%s:8500", hostIp)
+	}
+
 }
