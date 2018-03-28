@@ -8,7 +8,21 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"os"
 )
+
+func TestGetsConsulACLToken(t *testing.T) {
+	actualToken := getToken("testdata/consul-acl-token.txt")
+	expectedToken := "testToken"
+	require.Equal(t, expectedToken, actualToken)
+}
+
+func TestGetsConsulACLTokenFromEnvironmentVariable(t *testing.T) {
+	os.Setenv(consulAclTokenEnv, "nonStandardToken")
+	actualToken := getToken("")
+	expectedToken := "nonStandardToken"
+	require.Equal(t, expectedToken, actualToken)
+}
 
 func TestIfRegistersServiceInConsul(t *testing.T) {
 	service := ServiceInstance{
