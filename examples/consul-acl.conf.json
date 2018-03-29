@@ -1,0 +1,6 @@
+{
+  "acl_master_token": "mastertoken",
+  "acl_datacenter": "dc0",
+  "acl_default_policy": "deny",
+  "acl_down_policy": "extend-cache"
+}

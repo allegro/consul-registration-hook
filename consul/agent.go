@@ -2,7 +2,10 @@ package consul
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/hashicorp/consul/api"
@@ -99,8 +102,26 @@ func (a *Agent) Deregister(services []ServiceInstance) error {
 }
 
 // NewAgent returns a new Agent.
-func NewAgent() *Agent {
-	consulClient, _ := api.NewClient(api.DefaultConfig())
+func NewAgent(tokenFile string) *Agent {
+	config := api.DefaultConfig()
+	// at this point Token is empty string, if token was not passed on commandline we will just use not secure client
+	config.Token = getAgentToken(tokenFile)
+	consulClient, _ := api.NewClient(config)
 	agent := consulClient.Agent()
 	return &Agent{agentClient: agent}
+}
+
+func getAgentToken(tokenFile string) string {
+	if !isEmpty(tokenFile) {
+		aclBinaryToken, err := ioutil.ReadFile(tokenFile)
+		if err != nil {
+			log.Printf("unable to read token from file: %s, %s", tokenFile, err)
+		}
+		return string(aclBinaryToken)
+	}
+	return os.Getenv(api.HTTPTokenEnvName)
+}
+
+func isEmpty(input string) bool {
+	return len(input) == 0
 }

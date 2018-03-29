@@ -1,6 +1,7 @@
 package consul
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -9,6 +10,19 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGetsConsulACLToken(t *testing.T) {
+	actualToken := getAgentToken("testdata/consul-acl-token.txt")
+	expectedToken := "testToken"
+	require.Equal(t, expectedToken, actualToken)
+}
+
+func TestGetsConsulACLTokenFromEnvironmentVariable(t *testing.T) {
+	os.Setenv(api.HTTPTokenEnvName, "nonStandardToken")
+	actualToken := getAgentToken("")
+	expectedToken := "nonStandardToken"
+	require.Equal(t, expectedToken, actualToken)
+}
 
 func TestIfRegistersServiceInConsul(t *testing.T) {
 	service := ServiceInstance{
