@@ -22,6 +22,8 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: status.hostIP
+    - name: CONSUL_HTTP_ADDR
+      value: "$(HOST_IP):8500"
     ports:
     - containerPort: 8080
     volumeMounts:

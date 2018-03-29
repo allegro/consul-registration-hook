@@ -46,6 +46,12 @@ kubectl exec -it myservice-pod -- /bin/bash
 
 ### Consul ACL & DaemonSet usecase
 
+Create consul secret:
+
+```
+kubectl create -f ./examples/secret-for-consul-agent.yaml
+```
+
 Create consul agent DaemonSet:
 
 ```

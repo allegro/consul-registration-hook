@@ -18,7 +18,7 @@ func TestGetsConsulACLToken(t *testing.T) {
 }
 
 func TestGetsConsulACLTokenFromEnvironmentVariable(t *testing.T) {
-	os.Setenv(consulACLTokenEnv, "nonStandardToken")
+	os.Setenv(api.HTTPTokenEnvName, "nonStandardToken")
 	actualToken := getAgentToken("")
 	expectedToken := "nonStandardToken"
 	require.Equal(t, expectedToken, actualToken)

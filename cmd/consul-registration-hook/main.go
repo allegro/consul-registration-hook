@@ -78,7 +78,7 @@ func main() {
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  consulACLFileFlag,
-			Usage: "language for the greeting",
+			Usage: "Consul acl token file location.",
 		},
 	}
 	app.Name = "consul-registration-hook"
