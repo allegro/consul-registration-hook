@@ -68,9 +68,38 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 
 	service := services[0]
 
+	assert.Len(t, service.Tags, 0)
 	assert.Equal(t, "__name_8080", service.ID)
 	assert.Equal(t, "serviceName", service.Name)
 	assert.Equal(t, 8080, service.Port)
+}
+
+func TestIfConvertsLabelsToConsulTags(t *testing.T) {
+	containerName := "name"
+	port := int32(8080)
+	pod := testPod()
+	pod.Metadata.Labels["test-tag"] = "tag"
+	pod.Metadata.Labels[consulLabelKey] = "serviceName"
+	pod.Spec.Containers[0].Name = &containerName
+	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, &corev1.ContainerPort{HostPort: &port})
+
+	client := &MockClient{}
+	client.On("GetPod", context.Background(), "", "").
+		Return(pod, nil).Once()
+
+	provider := ServiceProvider{
+		Client: client,
+	}
+
+	services, err := provider.Get(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	client.AssertExpectations(t)
+
+	service := services[0]
+	assert.Len(t, service.Tags, 1)
+	assert.Contains(t, service.Tags, "test-tag")
 }
 
 func testPod() *corev1.Pod {

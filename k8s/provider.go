@@ -76,6 +76,14 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 		Check: ConvertToConsulCheck(container.LivenessProbe),
 	}
 
+	labels := pod.GetMetadata().GetLabels()
+
+	for key, value := range labels {
+		if value == "tag" {
+			service.Tags = append(service.Tags, key)
+		}
+	}
+
 	return []consul.ServiceInstance{service}, nil
 }
 

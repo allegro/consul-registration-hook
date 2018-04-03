@@ -35,6 +35,7 @@ type ServiceInstance struct {
 	Name  string
 	Host  string
 	Port  int
+	Tags  []string
 	Check *Check
 }
 
@@ -73,6 +74,7 @@ func (a *Agent) Register(services []ServiceInstance) error {
 			Name:    service.Name,
 			Port:    service.Port,
 			Address: service.Host,
+			Tags:    service.Tags,
 			Check:   check,
 		}
 
