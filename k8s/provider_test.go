@@ -46,11 +46,14 @@ func TestIfReturnsEmptySliceToPodIsNotLabelledCorrectly(t *testing.T) {
 
 func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 	containerName := "name"
+	podIP := "192.0.2.2"
+
 	port := int32(8080)
 	pod := testPod()
 	pod.Metadata.Labels[consulLabelKey] = "serviceName"
+	pod.Status.PodIP = &podIP
 	pod.Spec.Containers[0].Name = &containerName
-	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, &corev1.ContainerPort{HostPort: &port})
+	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, &corev1.ContainerPort{ContainerPort: &port})
 
 	client := &MockClient{}
 	client.On("GetPod", context.Background(), "", "").
@@ -69,7 +72,7 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 	service := services[0]
 
 	assert.Len(t, service.Tags, 0)
-	assert.Equal(t, "__name_8080", service.ID)
+	assert.Equal(t, "192.0.2.2_8080", service.ID)
 	assert.Equal(t, "serviceName", service.Name)
 	assert.Equal(t, 8080, service.Port)
 }
@@ -81,7 +84,7 @@ func TestIfConvertsLabelsToConsulTags(t *testing.T) {
 	pod.Metadata.Labels["test-tag"] = "tag"
 	pod.Metadata.Labels[consulLabelKey] = "serviceName"
 	pod.Spec.Containers[0].Name = &containerName
-	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, &corev1.ContainerPort{HostPort: &port})
+	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, &corev1.ContainerPort{ContainerPort: &port})
 
 	client := &MockClient{}
 	client.On("GetPod", context.Background(), "", "").
@@ -111,6 +114,7 @@ func testPod() *corev1.Pod {
 				},
 			},
 		},
+		Status: &corev1.PodStatus{},
 		Metadata: &metav1.ObjectMeta{
 			Labels: make(map[string]string),
 		},

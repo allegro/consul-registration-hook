@@ -66,13 +66,14 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 
 	// TODO(medzin): Allow to specify which containers and ports will be registered
 	container := pod.Spec.Containers[0]
-	port := int(*container.Ports[0].HostPort)
+	host := pod.GetStatus().GetPodIP()
+	port := int(*container.Ports[0].ContainerPort)
 
 	service := consul.ServiceInstance{
-		ID:    fmt.Sprintf("%s_%s_%s_%d", podName, podName, *container.Name, port),
+		ID:    fmt.Sprintf("%s_%d", host, port),
 		Name:  serviceName,
-		Host:  os.Getenv("KUBERNETES_SERVICE_HOST"),
-		Port:  int(*container.Ports[0].HostPort),
+		Host:  host,
+		Port:  port,
 		Check: ConvertToConsulCheck(container.LivenessProbe),
 	}
 
