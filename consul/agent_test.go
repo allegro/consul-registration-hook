@@ -55,6 +55,28 @@ func TestIfRegistersServiceInConsul(t *testing.T) {
 	mockAgentClient.AssertExpectations(t)
 }
 
+func TestIfRegistersServiceWithTagsInConsul(t *testing.T) {
+	service := ServiceInstance{
+		ID:   "id",
+		Name: "serviceName",
+		Host: "myhost",
+		Port: 1234,
+		Tags: []string{"tag"},
+	}
+
+	mockAgentClient := &MockAgentClient{}
+	mockAgentClient.On("ServiceRegister", mock.MatchedBy(func(registration *api.AgentServiceRegistration) bool {
+		return registration.Tags[0] == "tag"
+	})).Return(nil).Once()
+
+	agent := Agent{agentClient: mockAgentClient}
+
+	err := agent.Register([]ServiceInstance{service})
+
+	require.NoError(t, err)
+	mockAgentClient.AssertExpectations(t)
+}
+
 func TestIfDeregistersServicesInConsul(t *testing.T) {
 	services := []ServiceInstance{
 		{ID: "id1"},
