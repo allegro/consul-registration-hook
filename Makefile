@@ -1,4 +1,4 @@
-.PHONY: all build lint lint-deps test
+.PHONY: all build lint lint-deps test integration-test
 
 all: lint test build
 
@@ -13,7 +13,7 @@ lint-deps:
 	(go get -u -v gopkg.in/alecthomas/gometalinter.v2 && gometalinter.v2 --install)
 
 test:
-	go test -v -cover ./...
+	go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 
 integration-test:
 	scripts/integration_test.sh
