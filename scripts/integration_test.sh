@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 sudo mkdir /hooks
 sudo cp build/consul-registration-hook /hooks
 

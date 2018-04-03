@@ -1,6 +1,7 @@
 # Build folder and data
 build/
 consul-registration-hook
+coverage.txt
 
 # Binaries for programs and plugins
 *.exe

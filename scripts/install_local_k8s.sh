@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 CHANGE_MINIKUBE_NONE_USER=true
 
 # download and install kubectl, which is a requirement of minikube
