@@ -11,6 +11,8 @@ import (
 	"github.com/hashicorp/consul/api"
 )
 
+const defaultDeregisterCriticalServiceAfter = "60m"
+
 // CheckType is a health check type.
 type CheckType string
 
@@ -58,6 +60,7 @@ func (a *Agent) Register(services []ServiceInstance) error {
 			check = &api.AgentServiceCheck{
 				Interval: service.Check.Interval.String(),
 				Timeout:  service.Check.Timeout.String(),
+				DeregisterCriticalServiceAfter: defaultDeregisterCriticalServiceAfter,
 			}
 
 			switch service.Check.Type {
