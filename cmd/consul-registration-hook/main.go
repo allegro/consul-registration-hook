@@ -73,6 +73,8 @@ var commands = []cli.Command{
 	},
 }
 
+var version string
+
 func main() {
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
@@ -84,6 +86,7 @@ func main() {
 	app.Name = "consul-registration-hook"
 	app.Description = "Hook that can be used for synchronous registration and deregistration in Consul discovery service on Kubernetes or Mesos cluster with Allegro executor"
 	app.Usage = ""
+	app.Version = version
 	app.Commands = commands
 
 	if err := app.Run(os.Args); err != nil {
