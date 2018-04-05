@@ -1,9 +1,24 @@
+NAME    := consul-registration-hook
+VERSION := $(shell git describe --tags || echo "unknown")
+
+ARCH      := $(shell go env GOARCH)
+OS        := $(shell go env GOOS)
+BUILD_DIR := build
+LDFLAGS   := -X main.version=$(VERSION)
+
 .PHONY: all build lint lint-deps test integration-test
 
 all: lint test build
 
 build:
-	go build -v -o ./build/consul-registration-hook ./cmd/consul-registration-hook
+	go build -v -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(NAME) ./cmd/$(NAME)
+
+package: build
+	zip -j $(BUILD_DIR)/$(NAME)-$(VERSION)-$(OS)-$(ARCH).zip $(BUILD_DIR)/$(NAME)
+
+clean:
+	go clean -v .
+	rm -rf $(BUILD_DIR)
 
 lint: lint-deps
 	gometalinter.v2 --config=gometalinter.json ./...
