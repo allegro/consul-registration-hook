@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 
@@ -30,12 +31,14 @@ var commands = []cli.Command{
 				Name:  "k8s",
 				Usage: "register using data from Kubernetes API",
 				Action: func(c *cli.Context) error {
+					log.Print("Registering services using data from Kubernetes API")
 					provider := k8s.ServiceProvider{}
 					// TODO(medzin): Add support for timeout here
 					services, err := provider.Get(context.Background())
 					if err != nil {
-						return err
+						return fmt.Errorf("Error getting services to register: %s", err)
 					}
+					log.Printf("Found %d services to register", len(services))
 					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
 					agent := consul.NewAgent(aclTokenFile)
 					return agent.Register(services)
@@ -58,12 +61,14 @@ var commands = []cli.Command{
 				Name:  "k8s",
 				Usage: "deregister using data from Kubernetes API",
 				Action: func(c *cli.Context) error {
+					log.Print("Deregistering services using data from Kubernetes API")
 					provider := k8s.ServiceProvider{}
 					// TODO(medzin): Add support for timeout here
 					services, err := provider.Get(context.Background())
 					if err != nil {
-						return err
+						return fmt.Errorf("Error getting services to deregister: %s", err)
 					}
+					log.Printf("Found %d services to deregister", len(services))
 					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
 					agent := consul.NewAgent(aclTokenFile)
 					return agent.Deregister(services)
@@ -89,6 +94,7 @@ func main() {
 	app.Version = version
 	app.Commands = commands
 
+	log.Printf("consul-registration-hook (version: %s)", version)
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}

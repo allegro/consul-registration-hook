@@ -81,8 +81,9 @@ func (a *Agent) Register(services []ServiceInstance) error {
 			Check:   check,
 		}
 
+		log.Printf("Registering %q service in Consul agent", service.Name)
 		if err := a.agentClient.ServiceRegister(apiServiceInstance); err != nil {
-			return err
+			return fmt.Errorf("Error registering service %q in Consul agent: %s", service.Name, err)
 		}
 	}
 
@@ -94,6 +95,7 @@ func (a *Agent) Deregister(services []ServiceInstance) error {
 	var errs []error
 
 	for _, service := range services {
+		log.Printf("Deregistering %q service in Consul agent", service.Name)
 		if err := a.agentClient.ServiceDeregister(service.ID); err != nil {
 			errs = append(errs, err)
 		}
