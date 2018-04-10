@@ -89,6 +89,72 @@ volumes:
         mode: 511
 ```
 
+#### Production
+
+It is recommended to have a local copy of the hook on the production environment.
+For example on Google Cloud Platform you can have a copy of the hook in dedicated
+Cloud Storage bucket. Then you can authorize Compute Engine service account to
+have read only access to the bucket. After everything is prepared you can use
+[Init Container][9] to download hook and expose it on shared volume to the main
+container:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-consul-hook
+  labels:
+    consul: service-name
+spec:
+  initContainers:
+  - name: hook-init-container
+    image: google/cloud-sdk:alpine
+    imagePullPolicy: Always
+    command: ["/bin/sh"]
+    args: ["-c", "gsutil cat ${GS_URL} | tar -C /hooks -zxvf -"]
+    env:
+    - name: GS_URL
+        valueFrom:
+          configMapKeyRef:
+            name: consul-registration-hook
+            key: GS_URL
+    volumeMounts:
+    - name: hooks
+      mountPath: /hooks
+  containers:
+  - name: service-with-consul-hook-container
+    image: python:2
+    command: ["python", "-m", "SimpleHTTPServer", "8080"]
+    env:
+    - name: KUBERNETES_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: KUBERNETES_POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: CONSUL_HTTP_ADDR
+      valueFrom:
+        fieldRef:
+          fieldPath: status.hostIP
+    ports:
+    - containerPort: 8080
+    volumeMounts:
+    - name: hooks
+      mountPath: /hooks
+    lifecycle:
+      postStart:
+        exec:
+          command: ["/bin/sh", "-c", "/hooks/consul-registration-hook register k8s"]
+      preStop:
+        exec:
+          command: ["/bin/sh", "-c", "/hooks/consul-registration-hook deregister k8s"]
+  volumes:
+  - name: hooks
+    emptyDir: {}
+```
+
 ### Mesos
 
 Registration based on data provided from Mesos is not supported yet!
@@ -161,3 +227,4 @@ configuration.
 [6]: https://golang.org/doc/install
 [7]: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
 [8]: https://kubernetes.io/docs/concepts/configuration/secret/
+[9]: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
