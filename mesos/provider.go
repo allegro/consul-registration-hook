@@ -41,20 +41,19 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 	// TODO(medzin): add label to tag conversion
 	// TODO(medzin): add check conversion after MESOS-8780 is completed
 	// See: https://issues.apache.org/jira/browse/MESOS-8780
-	if len(task.Discovery.Ports.Ports) > 0 {
-		for _, port := range task.Discovery.Ports.Ports {
-			if consulServiceName := p.getConsulServiceName(port.Labels); consulServiceName != "" {
-				service := consul.ServiceInstance{
-					ID:   fmt.Sprintf("%s_%d", hostname, port.Number),
-					Name: consulServiceName,
-					Host: hostname,
-					Port: port.Number,
-				}
-				services = append(services, service)
+	for _, port := range task.Discovery.Ports.Ports {
+		if consulServiceName := p.getConsulServiceName(port.Labels); consulServiceName != "" {
+			service := consul.ServiceInstance{
+				ID:   fmt.Sprintf("%s_%d", hostname, port.Number),
+				Name: consulServiceName,
+				Host: hostname,
+				Port: port.Number,
 			}
+			services = append(services, service)
 		}
 	}
-	if len(services) == 0 {
+
+	if len(services) == 0 && len(task.Discovery.Ports.Ports) > 0 {
 		if consulServiceName := p.getConsulServiceName(task.Labels); consulServiceName != "" {
 			port := task.Discovery.Ports.Ports[0].Number
 			service := consul.ServiceInstance{
@@ -113,7 +112,9 @@ func (p *ServiceProvider) getTaskFromState(state state) (task, error) {
 		if framework.ID == frameworkID {
 			for _, executor := range framework.Executors {
 				if executor.ID == executorID {
-					return executor.Tasks[0], nil
+					if len(executor.Tasks) > 0 {
+						return executor.Tasks[0], nil
+					}
 				}
 			}
 		}
