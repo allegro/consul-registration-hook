@@ -85,6 +85,69 @@ func TestIfReturnsServicesToRegisterBasedOnPortLabels(t *testing.T) {
 	assert.Equal(t, 1234, serviceInstances[0].Port)
 }
 
+func TestIfNotPanicsWithEmptyPorts(t *testing.T) {
+	os.Setenv("MESOS_EXECUTOR_ID", "executor_id")
+	os.Setenv("MESOS_FRAMEWORK_ID", "framework_id")
+	os.Setenv("MESOS_HOSTNAME", "hostname")
+	defer os.Unsetenv("MESOS_EXECUTOR_ID")
+	defer os.Unsetenv("MESOS_FRAMEWORK_ID")
+	defer os.Unsetenv("MESOS_HOSTNAME")
+
+	require.NotPanics(t, func() {
+		s := state{Frameworks: []framework{framework{
+			ID: "framework_id",
+			Executors: []executor{executor{
+				ID: "executor_id",
+				Tasks: []task{task{
+					Labels: []label{label{Key: "consul", Value: "name"}},
+				}},
+			}},
+		}}}
+
+		agentClient := &mockAgentClient{}
+		agentClient.On("state").Return(s, nil)
+
+		serviceProvider := ServiceProvider{
+			agentClient: agentClient,
+		}
+
+		serviceInstances, err := serviceProvider.Get(context.Background())
+
+		require.NoError(t, err)
+		require.Empty(t, serviceInstances)
+	})
+}
+
+func TestIfNotPanicsWithEmptyTasks(t *testing.T) {
+	os.Setenv("MESOS_EXECUTOR_ID", "executor_id")
+	os.Setenv("MESOS_FRAMEWORK_ID", "framework_id")
+	os.Setenv("MESOS_HOSTNAME", "hostname")
+	defer os.Unsetenv("MESOS_EXECUTOR_ID")
+	defer os.Unsetenv("MESOS_FRAMEWORK_ID")
+	defer os.Unsetenv("MESOS_HOSTNAME")
+
+	require.NotPanics(t, func() {
+		s := state{Frameworks: []framework{framework{
+			ID: "framework_id",
+			Executors: []executor{executor{
+				ID: "executor_id",
+			}},
+		}}}
+
+		agentClient := &mockAgentClient{}
+		agentClient.On("state").Return(s, nil)
+
+		serviceProvider := ServiceProvider{
+			agentClient: agentClient,
+		}
+
+		serviceInstances, err := serviceProvider.Get(context.Background())
+
+		require.Error(t, err)
+		require.Empty(t, serviceInstances)
+	})
+}
+
 type mockAgentClient struct {
 	mock.Mock
 }

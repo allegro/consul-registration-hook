@@ -62,7 +62,7 @@ var commands = []cli.Command{
 		Subcommands: []cli.Command{
 			{
 				Name:  "mesos",
-				Usage: "register using data from Mesos Agent API",
+				Usage: "deregister using data from Mesos Agent API",
 				Action: func(c *cli.Context) error {
 					log.Print("Deregistering services using data from Mesos API")
 					provider := mesos.ServiceProvider{}
