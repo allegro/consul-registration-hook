@@ -3,15 +3,20 @@
 set -e
 
 CHANGE_MINIKUBE_NONE_USER=true
+K8S_VERSION=v1.9.4
 
 # download and install kubectl, which is a requirement of minikube
-curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.8.0/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VERSION}/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 
 # download and install minikube
 curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
 
+# disable crash reports
+minikube config set WantReportErrorPrompt false
+
 # start minikube with none driver (it setups localkube on the host)
-sudo minikube start --vm-driver=none --kubernetes-version=v1.8.0
+# see: https://github.com/kubernetes/minikube/issues/2704
+sudo minikube start --bootstrapper=localkube --logtostderr --v=0 --vm-driver=none --kubernetes-version=${K8S_VERSION}
 
 # update kubeconfig
 minikube update-context
