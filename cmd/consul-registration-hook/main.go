@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/allegro/consul-registration-hook/consul"
 	"github.com/allegro/consul-registration-hook/k8s"
+	"github.com/allegro/consul-registration-hook/mesos"
 )
 
 var consulACLFileFlag = "consul-acl-file"
@@ -24,7 +24,17 @@ var commands = []cli.Command{
 				Name:  "mesos",
 				Usage: "register using data from Mesos Agent API",
 				Action: func(c *cli.Context) error {
-					return errors.New("not supported yet")
+					log.Print("Registering services using data from Mesos API")
+					provider := mesos.ServiceProvider{}
+					// TODO(medzin): Add support for timeout here
+					services, err := provider.Get(context.Background())
+					if err != nil {
+						return fmt.Errorf("Error getting services to register: %s", err)
+					}
+					log.Printf("Found %d services to register", len(services))
+					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
+					agent := consul.NewAgent(aclTokenFile)
+					return agent.Register(services)
 				},
 			},
 			{
@@ -54,7 +64,17 @@ var commands = []cli.Command{
 				Name:  "mesos",
 				Usage: "register using data from Mesos Agent API",
 				Action: func(c *cli.Context) error {
-					return errors.New("not supported yet")
+					log.Print("Deregistering services using data from Mesos API")
+					provider := mesos.ServiceProvider{}
+					// TODO(medzin): Add support for timeout here
+					services, err := provider.Get(context.Background())
+					if err != nil {
+						return fmt.Errorf("Error getting services to deregister: %s", err)
+					}
+					log.Printf("Found %d services to deregister", len(services))
+					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
+					agent := consul.NewAgent(aclTokenFile)
+					return agent.Deregister(services)
 				},
 			},
 			{

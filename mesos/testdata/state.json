@@ -1,0 +1,70 @@
+{
+    "version": "1.1.3",
+    "git_sha": "ce77d91bd3a59227d5684ce0783b460c54ea311f",
+    "git_tag": "1.1.3",
+    "build_date": "2017-09-11 19:38:23",
+    "build_time": 1505158703,
+    "build_user": "ubuntu",
+    "start_time": 1519381904.15357,
+    "resources": {
+        "disk": 33230,
+        "mem": 15023,
+        "gpus": 0,
+        "cpus": 8,
+        "ephemeral_ports": "[32768-57344]",
+        "ports": "[31000-32000]"
+    },
+    "reserved_resources": {},
+    "unreserved_resources": {
+        "disk": 33230,
+        "mem": 15023,
+        "gpus": 0,
+        "cpus": 8,
+        "ephemeral_ports": "[32768-57344]",
+        "ports": "[31000-32000]"
+    },
+    "reserved_resources_full": {},
+    "frameworks": [
+        {
+            "id": "framework_id",
+            "name": "marathon",
+            "user": "mesosuser",
+            "failover_timeout": 604800,
+            "checkpoint": true,
+            "role": "framework",
+            "executors": [
+                {
+                    "id": "executor_id",
+                    "name": "",
+                    "source": "",
+                    "container": "e7ec9e0e-e9b8-4947-ba84-8d8bade63f9d",
+                    "tasks": [
+                        {
+                            "id": "task_id",
+                            "name": "name",
+                            "framework_id": "framework_id",
+                            "executor_id": "executor_id",
+                            "slave_id": "slave_id",
+                            "state": "TASK_RUNNING",
+                            "resources": {
+                                "disk": 500,
+                                "mem": 4096,
+                                "gpus": 0,
+                                "cpus": 1,
+                                "ports": "[31754-31754]"
+                            },
+                            "labels": [
+                                {
+                                    "key": "consul",
+                                    "value": "consul-name"
+                                }
+                            ]
+                        }
+                    ],
+                    "queued_tasks": [],
+                    "completed_tasks": []
+                }
+            ]
+        }
+    ]
+}
