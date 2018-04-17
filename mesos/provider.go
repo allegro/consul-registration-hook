@@ -31,36 +31,48 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 		return nil, fmt.Errorf("unable to find task info: %s", err)
 	}
 
+	return p.buildServices(task)
+}
+
+func (p *ServiceProvider) buildServices(t task) ([]consul.ServiceInstance, error) {
 	hostname, err := p.getMesosHostname()
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine hostname: %s", err)
 	}
 
 	var services []consul.ServiceInstance
+	var tags []string
 
-	// TODO(medzin): add label to tag conversion
+	for _, label := range t.Labels {
+		if label.Value == "tag" {
+			tags = append(tags, label.Key)
+		}
+	}
+
 	// TODO(medzin): add check conversion after MESOS-8780 is completed
 	// See: https://issues.apache.org/jira/browse/MESOS-8780
-	for _, port := range task.Discovery.Ports.Ports {
+	for _, port := range t.Discovery.Ports.Ports {
 		if consulServiceName := p.getConsulServiceName(port.Labels); consulServiceName != "" {
 			service := consul.ServiceInstance{
 				ID:   fmt.Sprintf("%s_%d", hostname, port.Number),
 				Name: consulServiceName,
 				Host: hostname,
 				Port: port.Number,
+				Tags: tags,
 			}
 			services = append(services, service)
 		}
 	}
 
-	if len(services) == 0 && len(task.Discovery.Ports.Ports) > 0 {
-		if consulServiceName := p.getConsulServiceName(task.Labels); consulServiceName != "" {
-			port := task.Discovery.Ports.Ports[0].Number
+	if len(services) == 0 && len(t.Discovery.Ports.Ports) > 0 {
+		if consulServiceName := p.getConsulServiceName(t.Labels); consulServiceName != "" {
+			port := t.Discovery.Ports.Ports[0].Number
 			service := consul.ServiceInstance{
 				ID:   fmt.Sprintf("%s_%d", hostname, port),
 				Name: consulServiceName,
 				Host: hostname,
 				Port: port,
+				Tags: tags,
 			}
 			services = append(services, service)
 		}
