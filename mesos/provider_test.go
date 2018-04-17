@@ -148,6 +148,43 @@ func TestIfNotPanicsWithEmptyTasks(t *testing.T) {
 	})
 }
 
+func TestIfConvertsMesosLabelsToConsulTags(t *testing.T) {
+	os.Setenv("MESOS_EXECUTOR_ID", "executor_id")
+	os.Setenv("MESOS_FRAMEWORK_ID", "framework_id")
+	os.Setenv("MESOS_HOSTNAME", "hostname")
+	defer os.Unsetenv("MESOS_EXECUTOR_ID")
+	defer os.Unsetenv("MESOS_FRAMEWORK_ID")
+	defer os.Unsetenv("MESOS_HOSTNAME")
+
+	s := state{Frameworks: []framework{framework{
+		ID: "framework_id",
+		Executors: []executor{executor{
+			ID: "executor_id",
+			Tasks: []task{task{
+				Labels: []label{
+					label{Key: "consul", Value: "name"},
+					label{Key: "tag1", Value: "tag"},
+					label{Key: "tag2", Value: "tag"},
+				},
+				Discovery: discovery{Ports: ports{Ports: []port{port{Number: 1234}}}},
+			}},
+		}},
+	}}}
+
+	agentClient := &mockAgentClient{}
+	agentClient.On("state").Return(s, nil)
+
+	serviceProvider := ServiceProvider{
+		agentClient: agentClient,
+	}
+
+	serviceInstances, err := serviceProvider.Get(context.Background())
+
+	require.NoError(t, err)
+	require.NotEmpty(t, serviceInstances)
+	assert.Equal(t, []string{"tag1", "tag2"}, serviceInstances[0].Tags)
+}
+
 type mockAgentClient struct {
 	mock.Mock
 }
