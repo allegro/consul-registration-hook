@@ -6,12 +6,16 @@ OS        := $(shell go env GOOS)
 BUILD_DIR := build
 LDFLAGS   := -X main.version=$(VERSION)
 
-.PHONY: all build lint lint-deps test integration-test
+THIS_FILE := $(lastword $(MAKEFILE_LIST))
+.PHONY: all build build-linux package clean lint lint-deps test integration-test
 
 all: lint test build
 
 build:
 	go build -v -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(NAME) ./cmd/$(NAME)
+
+build-linux:
+	GOOS=linux $(MAKE) -f $(THIS_FILE) build
 
 package: build
 	tar -czvf $(BUILD_DIR)/$(NAME)-$(VERSION)-$(OS)-$(ARCH).tar.gz -C $(BUILD_DIR) $(NAME)
