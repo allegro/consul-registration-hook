@@ -157,9 +157,13 @@ spec:
 
 ### Mesos
 
-Registration based on data provided from Mesos is not supported yet!
+Registration based on data provided from Mesos API is supported only partially.
+Because Mesos API do not provide health check definions we are unable to sync
+them with Consul agent.
 
 ## Development
+
+### Kubernetes integration
 
 To develop the hook locally you need the following things to be installed on
 your machine:
@@ -171,7 +175,7 @@ When everything is installed and setup properly, you can build hook for the Linu
 operating system (as Minikube starts Kubernetes cluster on Linux virtual machine):
 
 ```bash
-GOARCH=amd64 GOOS=linux go build -v ./cmd/consul-registration-hook
+make build-linux
 ```
 
 After successful build, you can start your local mini Kubernetes cluster with
@@ -181,7 +185,7 @@ project root mounted to the Kubernetes virtual machine:
 minikube start --mount --mount-string .:/hooks
 ```
 
-### Simple usecase, consul agent in separate container in the pod
+#### Simple usecase, consul agent in separate container in the pod
 
 Create a pod with Consul agent in development mode and hooks mounted:
 
@@ -195,7 +199,7 @@ You can login to the container with hooks using the following command:
 kubectl exec -it myservice-pod -- /bin/bash
 ```
 
-### Consul ACL & DaemonSet usecase
+#### Consul ACL & DaemonSet usecase
 
 Create consul secret:
 
@@ -219,6 +223,30 @@ You can find the hook binary in `/hooks` folder on the container. All required
 environment variables are set up so you can run a command without any additional
 configuration.
 
+### Mesos integration
+
+To develop the hook locally you need the following things to be installed on
+your machine:
+
+* [Docker CE][10]
+* [Go][6]
+
+When everything is installed and setup properly, you can build hook for the Linux
+operating system (we will use dockerized Mesos cluster for development):
+
+```bash
+make build-linux
+```
+
+After successful build, you can start your local Mesos + Marathon cluster:
+
+```bash
+docker-compose up
+```
+
+Hook binary is available on Mesos slave container in `/opt/consul-registration-hook/`
+folder, and can be used directly when deploying apps using Marathon (localhost:8080).
+
 [1]: https://www.consul.io/
 [2]: https://kubernetes.io/
 [3]: http://mesos.apache.org/
@@ -228,3 +256,4 @@ configuration.
 [7]: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
 [8]: https://kubernetes.io/docs/concepts/configuration/secret/
 [9]: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+[10]: https://www.docker.com/get-docker

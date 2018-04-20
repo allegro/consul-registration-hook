@@ -1,0 +1,44 @@
+version: '3'
+services:
+  zookeeper:
+    image: zookeeper
+    ports:
+      - 2181:2181
+  mesos-master:
+    image: mesosphere/mesos-master:1.5.0
+    ports:
+      - 5050:5050
+    environment:
+      - MESOS_PORT=5050
+      - MESOS_ZK=zk://zookeeper:2181/mesos
+      - MESOS_QUORUM=1
+      - MESOS_REGISTRY=in_memory
+      - MESOS_LOG_DIR=/var/log/mesos
+      - MESOS_WORK_DIR=/var/tmp/mesos
+  mesos-slave:
+    image: mesosphere/mesos-slave:1.5.0
+    privileged: true
+    ports:
+      - 5051:5051
+    environment:
+      - MESOS_PORT=5051
+      - MESOS_MASTER=zk://zookeeper:2181/mesos
+      - MESOS_SWITCH_USER=0
+      - MESOS_CONTAINERIZERS=mesos
+      - MESOS_LOG_DIR=/var/log/mesos
+      - MESOS_WORK_DIR=/var/tmp/mesos
+      - MESOS_SYSTEMD_ENABLE_SUPPORT=false
+    volumes:
+      - ./build:/opt/consul-registration-hook
+  marathon:
+    image: mesosphere/marathon:v1.6.352
+    ports:
+      - 8080:8080
+    environment:
+      - MARATHON_MASTER=zk://zookeeper:2181/mesos
+      - MARATHON_ZK=zk://zookeeper:2181/marathon
+  consul:
+    image: consul:1.0.7
+    ports:
+      - 8500:8500
+    command: consul agent -dev -client 0.0.0.0

@@ -13,10 +13,10 @@ import (
 func TestIfReturnsServicesToRegisterBasedOnTaskLabels(t *testing.T) {
 	os.Setenv("MESOS_EXECUTOR_ID", "executor_id")
 	os.Setenv("MESOS_FRAMEWORK_ID", "framework_id")
-	os.Setenv("MESOS_HOSTNAME", "hostname")
+	os.Setenv("HOST", "hostname")
 	defer os.Unsetenv("MESOS_EXECUTOR_ID")
 	defer os.Unsetenv("MESOS_FRAMEWORK_ID")
-	defer os.Unsetenv("MESOS_HOSTNAME")
+	defer os.Unsetenv("HOST")
 
 	s := state{Frameworks: []framework{framework{
 		ID: "framework_id",
@@ -49,10 +49,10 @@ func TestIfReturnsServicesToRegisterBasedOnTaskLabels(t *testing.T) {
 func TestIfReturnsServicesToRegisterBasedOnPortLabels(t *testing.T) {
 	os.Setenv("MESOS_EXECUTOR_ID", "executor_id")
 	os.Setenv("MESOS_FRAMEWORK_ID", "framework_id")
-	os.Setenv("MESOS_HOSTNAME", "hostname")
+	os.Setenv("HOST", "hostname")
 	defer os.Unsetenv("MESOS_EXECUTOR_ID")
 	defer os.Unsetenv("MESOS_FRAMEWORK_ID")
-	defer os.Unsetenv("MESOS_HOSTNAME")
+	defer os.Unsetenv("HOST")
 
 	s := state{Frameworks: []framework{framework{
 		ID: "framework_id",
@@ -88,10 +88,10 @@ func TestIfReturnsServicesToRegisterBasedOnPortLabels(t *testing.T) {
 func TestIfNotPanicsWithEmptyPorts(t *testing.T) {
 	os.Setenv("MESOS_EXECUTOR_ID", "executor_id")
 	os.Setenv("MESOS_FRAMEWORK_ID", "framework_id")
-	os.Setenv("MESOS_HOSTNAME", "hostname")
+	os.Setenv("HOST", "hostname")
 	defer os.Unsetenv("MESOS_EXECUTOR_ID")
 	defer os.Unsetenv("MESOS_FRAMEWORK_ID")
-	defer os.Unsetenv("MESOS_HOSTNAME")
+	defer os.Unsetenv("HOST")
 
 	require.NotPanics(t, func() {
 		s := state{Frameworks: []framework{framework{
@@ -121,10 +121,10 @@ func TestIfNotPanicsWithEmptyPorts(t *testing.T) {
 func TestIfNotPanicsWithEmptyTasks(t *testing.T) {
 	os.Setenv("MESOS_EXECUTOR_ID", "executor_id")
 	os.Setenv("MESOS_FRAMEWORK_ID", "framework_id")
-	os.Setenv("MESOS_HOSTNAME", "hostname")
+	os.Setenv("HOST", "hostname")
 	defer os.Unsetenv("MESOS_EXECUTOR_ID")
 	defer os.Unsetenv("MESOS_FRAMEWORK_ID")
-	defer os.Unsetenv("MESOS_HOSTNAME")
+	defer os.Unsetenv("HOST")
 
 	require.NotPanics(t, func() {
 		s := state{Frameworks: []framework{framework{
@@ -151,10 +151,10 @@ func TestIfNotPanicsWithEmptyTasks(t *testing.T) {
 func TestIfConvertsMesosLabelsToConsulTags(t *testing.T) {
 	os.Setenv("MESOS_EXECUTOR_ID", "executor_id")
 	os.Setenv("MESOS_FRAMEWORK_ID", "framework_id")
-	os.Setenv("MESOS_HOSTNAME", "hostname")
+	os.Setenv("HOST", "hostname")
 	defer os.Unsetenv("MESOS_EXECUTOR_ID")
 	defer os.Unsetenv("MESOS_FRAMEWORK_ID")
-	defer os.Unsetenv("MESOS_HOSTNAME")
+	defer os.Unsetenv("HOST")
 
 	s := state{Frameworks: []framework{framework{
 		ID: "framework_id",

@@ -107,9 +107,9 @@ func (p *ServiceProvider) getExecutorAndFrameworkID() (executorID, frameworkID s
 }
 
 func (p *ServiceProvider) getMesosHostname() (string, error) {
-	hostname := os.Getenv("MESOS_HOSTNAME")
+	hostname := os.Getenv("HOST")
 	if hostname == "" {
-		return "", errors.New("missing MESOS_HOSTNAME environmental variable")
+		return "", errors.New("missing HOST environmental variable")
 	}
 	return hostname, nil
 }
