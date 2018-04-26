@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/consul/api"
 )
 
-const defaultDeregisterCriticalServiceAfter = "60m"
+const defaultDeregisterCriticalServiceAfter = "15m"
 
 // CheckType is a health check type.
 type CheckType string
