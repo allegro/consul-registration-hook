@@ -134,10 +134,12 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
-    - name: CONSUL_HTTP_ADDR
+    - name: HOST_IP
       valueFrom:
         fieldRef:
           fieldPath: status.hostIP
+    - name: CONSUL_HTTP_ADDR
+      value: "$(HOST_IP):8500"
     ports:
     - containerPort: 8080
     volumeMounts:
