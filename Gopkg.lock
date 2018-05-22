@@ -31,12 +31,7 @@
 
 [[projects]]
   name = "github.com/hashicorp/consul"
-  packages = [
-    "api",
-    "lib/freeport",
-    "testutil",
-    "testutil/retry"
-  ]
+  packages = ["api"]
   revision = "9a494b5fb9c86180a5702e29c485df1507a47198"
   version = "v1.0.6"
 
@@ -53,12 +48,6 @@
   revision = "6bb64b370b90e7ef1fa532be9e591a81c3493e00"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/hashicorp/go-uuid"
-  packages = ["."]
-  revision = "64130c7a86d732268a38cb04cfbaf0cc987fda98"
-
-[[projects]]
   name = "github.com/hashicorp/serf"
   packages = ["coordinate"]
   revision = "d6574a5bb1226678d7010325fb6c985db20ee458"
@@ -69,12 +58,6 @@
   name = "github.com/mitchellh/go-homedir"
   packages = ["."]
   revision = "b8bc1bf767474819792c23f32d8286a45736f1c6"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/mitchellh/go-testing-interface"
-  packages = ["."]
-  revision = "a61a99592b77c9ba629d254a693acffaeb4b7e28"
 
 [[projects]]
   name = "github.com/pkg/errors"
@@ -145,6 +128,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "19ef1fbe7a3dc8cb7d55a60491de4475d548fac40fa3d85642933155e48f092c"
+  inputs-digest = "e2e0c00c4b1ba4bbb59f855c68dc06a05e7941adf2161a988d8e495d095f729a"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -74,7 +74,7 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 		Name:  serviceName,
 		Host:  host,
 		Port:  port,
-		Check: ConvertToConsulCheck(container.LivenessProbe),
+		Check: ConvertToConsulCheck(container.LivenessProbe, host),
 	}
 
 	labels := pod.GetMetadata().GetLabels()
