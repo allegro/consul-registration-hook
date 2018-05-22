@@ -15,7 +15,7 @@ const defaultScheme = "http"
 
 // ConvertToConsulCheck converts Kubernetes probe definition to Consul check
 // definition.
-func ConvertToConsulCheck(probe *corev1.Probe) *consul.Check {
+func ConvertToConsulCheck(probe *corev1.Probe, host string) *consul.Check {
 	if probe == nil {
 		return nil
 	}
@@ -26,14 +26,14 @@ func ConvertToConsulCheck(probe *corev1.Probe) *consul.Check {
 	if handler := probe.Handler.HttpGet; handler != nil {
 		checkType = consul.CheckHTTPGet
 		u := url.URL{
-			Host:   net.JoinHostPort(handler.GetHost(), strconv.Itoa(int(handler.GetPort().GetIntVal()))),
+			Host:   net.JoinHostPort(host, strconv.Itoa(int(handler.GetPort().GetIntVal()))),
 			Path:   handler.GetPath(),
 			Scheme: defaultScheme, // Consul do not support HTTPS checks
 		}
 		address = u.String()
 	} else if handler := probe.Handler.TcpSocket; handler != nil {
 		checkType = consul.CheckTCP
-		address = net.JoinHostPort(handler.GetHost(), strconv.Itoa(int(handler.GetPort().GetIntVal())))
+		address = net.JoinHostPort(host, strconv.Itoa(int(handler.GetPort().GetIntVal())))
 	} else {
 		return nil
 	}

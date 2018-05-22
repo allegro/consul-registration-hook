@@ -12,7 +12,7 @@ import (
 )
 
 func TestIfConvertsNilProbeToNilCheck(t *testing.T) {
-	assert.Nil(t, ConvertToConsulCheck(nil))
+	assert.Nil(t, ConvertToConsulCheck(nil, ""))
 }
 
 func TestIfConvertsHTTPProbeToHTTPCheck(t *testing.T) {
@@ -33,7 +33,7 @@ func TestIfConvertsHTTPProbeToHTTPCheck(t *testing.T) {
 		TimeoutSeconds: &sixtySeconds,
 	}
 
-	httpCheck := ConvertToConsulCheck(httpProbe)
+	httpCheck := ConvertToConsulCheck(httpProbe, "localhost")
 
 	assert.Equal(t, consul.CheckHTTPGet, httpCheck.Type)
 	assert.Equal(t, "http://localhost:8080/ping", httpCheck.Address)
@@ -43,13 +43,11 @@ func TestIfConvertsHTTPProbeToHTTPCheck(t *testing.T) {
 
 func TestIfConvertsTCPProbeToTCPCheck(t *testing.T) {
 	sixtySeconds := int32(60)
-	localhost := "localhost"
 	port := int32(8080)
 
 	httpProbe := &corev1.Probe{
 		Handler: &corev1.Handler{
 			TcpSocket: &corev1.TCPSocketAction{
-				Host: &localhost,
 				Port: &intstr.IntOrString{IntVal: &port},
 			},
 		},
@@ -57,7 +55,7 @@ func TestIfConvertsTCPProbeToTCPCheck(t *testing.T) {
 		TimeoutSeconds: &sixtySeconds,
 	}
 
-	httpCheck := ConvertToConsulCheck(httpProbe)
+	httpCheck := ConvertToConsulCheck(httpProbe, "localhost")
 
 	assert.Equal(t, consul.CheckTCP, httpCheck.Type)
 	assert.Equal(t, "localhost:8080", httpCheck.Address)
