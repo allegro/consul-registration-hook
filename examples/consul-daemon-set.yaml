@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: consul-agent
+spec:
+  selector:
+    matchLabels:
+      name: consul-agent
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: consul-agent
+    spec:
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      initContainers:
+      - name: consul-agent-setup
+        image: busybox
+        command: ['sh', '-c', 'rm -f /consul/data/node-id']
+        volumeMounts:
+          - name: daemon-agent-data
+            mountPath: /consul/data
+      containers:
+      - name: consul-agent
+        image: "consul:0.9.3"
+        env:
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+        args:
+          - "agent"
+          - "-dev"
+          - "-ui"
+          - "-advertise=$(POD_IP)"
+          - "-client=0.0.0.0"
+          - "-data-dir=/consul/data"
+          - "-domain=appengine."
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - consul leave
+        volumeMounts:
+            - name: daemon-agent-data
+              mountPath: /consul/data
+        ports:
+          - containerPort: 8300
+            name: server-rpc
+          - containerPort: 8301
+            name: serflan
+          - containerPort: 8500
+            hostPort: 8500
+            name: ui-port
+          - containerPort: 8600
+            hostPort: 8600
+            name: consuldns
+            protocol: TCP
+          - containerPort: 8600
+            hostPort: 8600
+            name: consuldns-udp
+            protocol: UDP
+      volumes:
+      - name: daemon-agent-data
+        hostPath:
+          path: /var/lib/consul
+          type: DirectoryOrCreate
+

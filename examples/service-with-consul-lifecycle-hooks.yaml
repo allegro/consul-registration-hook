@@ -18,6 +18,12 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
+    - name: HOST_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.hostIP
+    - name: CONSUL_HTTP_ADDR
+      value: "$(HOST_IP):8500"
     ports:
     - containerPort: 8080
     volumeMounts:
@@ -30,11 +36,6 @@ spec:
       preStop:
         exec:
           command: ["/bin/sh", "-c", "/hooks/consul-registration-hook deregister k8s"]
-  - name: consul-dev-container
-    image: consul
-    command: ["consul", "agent", "-dev"]
-    ports:
-    - containerPort: 8500
   volumes:
   - name: hooks
     hostPath:
