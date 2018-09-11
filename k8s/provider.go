@@ -63,11 +63,10 @@ func (c *defaultClient) GetFailureDomainTags(ctx context.Context, pod *corev1.Po
 		}
 	}
 
-	if len(tags) > 0 {
-		return tags, nil
-	} else {
+	if len(tags) < 1 {
 		return nil, fmt.Errorf("failure domain labels don't exist")
 	}
+	return tags, nil
 }
 
 // ServiceProvider is responsible for providing services that should be registered
