@@ -44,7 +44,6 @@ func (c *defaultClient) GetPod(ctx context.Context, namespace, name string) (*co
 	return pod, nil
 }
 
-
 func (c *defaultClient) GetFailureDomainTags(ctx context.Context, pod *corev1.Pod) ([]string, error) {
 	client, err := k8s.NewInClusterClient()
 	if err != nil {
@@ -58,7 +57,7 @@ func (c *defaultClient) GetFailureDomainTags(ctx context.Context, pod *corev1.Po
 	labels := node.GetMetadata().GetLabels()
 	var tags []string
 	for k, v := range labels {
-		if strings.Contains(k, "failure-domain.beta.kubernetes.io" ) {
+		if strings.Contains(k, "failure-domain.beta.kubernetes.io") {
 			tags = append(tags, fmt.Sprintf("%s:%s", strings.Split(k, "/")[1], v))
 		}
 	}
