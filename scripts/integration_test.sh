@@ -15,4 +15,6 @@ do
   sleep 30
 done
 
-kubectl exec -it myservice-pod -- curl -v --fail http://localhost:8500/v1/catalog/service/myservice | grep myservice
+RESULT=$(kubectl exec -it myservice-pod -- curl -v --fail http://localhost:8500/v1/catalog/service/myservice)
+echo $RESULT | grep myservice
+echo $RESULT | grep "k8sPodNamespace: default"
