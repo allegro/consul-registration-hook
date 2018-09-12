@@ -58,6 +58,8 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 	client := &MockClient{}
 	client.On("GetPod", context.Background(), "", "").
 		Return(pod, nil).Once()
+	client.On("GetFailureDomainTags", context.Background(), pod).
+		Return(nil, nil).Once()
 
 	provider := ServiceProvider{
 		Client: client,
@@ -89,6 +91,9 @@ func TestIfConvertsLabelsToConsulTags(t *testing.T) {
 	client := &MockClient{}
 	client.On("GetPod", context.Background(), "", "").
 		Return(pod, nil).Once()
+	client.On("GetFailureDomainTags", context.Background(), pod).
+		Return(nil, nil).Once()
+
 
 	provider := ServiceProvider{
 		Client: client,
@@ -104,6 +109,7 @@ func TestIfConvertsLabelsToConsulTags(t *testing.T) {
 	assert.Len(t, service.Tags, 1)
 	assert.Contains(t, service.Tags, "test-tag")
 }
+
 
 func testPod() *corev1.Pod {
 	return &corev1.Pod{
@@ -131,4 +137,13 @@ func (c *MockClient) GetPod(ctx context.Context, namespace, name string) (*corev
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*corev1.Pod), args.Error(1)
+}
+
+func (c *MockClient) GetFailureDomainTags(ctx context.Context, pod *corev1.Pod) ([]string, error) {
+	args := c.Called(ctx, pod)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
+	return args.Get(0).([]string), args.Error(1)
 }
