@@ -14,9 +14,11 @@ import (
 )
 
 const (
-	consulLabelKey     = "consul"
-	podNamespaceEnvVar = "KUBERNETES_POD_NAMESPACE"
-	podNameEnvVar      = "KUBERNETES_POD_NAME"
+	consulLabelKey                  = "consul"
+	podNamespaceEnvVar              = "KUBERNETES_POD_NAMESPACE"
+	podNameEnvVar                   = "KUBERNETES_POD_NAME"
+	consulPodNameLabelTemplate      = "k8sPodName: %s"
+	consulPodNamespaceLabelTemplate = "k8sPodNamespace: %s"
 )
 
 // Client is an interface for client to Kubernetes API.
@@ -110,6 +112,10 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 		log.Printf("Won't include failure domain data in registration: %s", err)
 	} else {
 		service.Tags = append(service.Tags, failureDomainTags...)
+	}
+	if podName != "" && podNamespace != "" {
+		service.Tags = append(service.Tags, fmt.Sprintf(consulPodNameLabelTemplate, podName))
+		service.Tags = append(service.Tags, fmt.Sprintf(consulPodNamespaceLabelTemplate, podNamespace))
 	}
 
 	labels := pod.GetMetadata().GetLabels()
