@@ -30,16 +30,12 @@ type Client interface {
 }
 
 type defaultClient struct {
+	k8sClient *k8s.Client
 }
 
 func (c *defaultClient) GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error) {
-	client, err := k8s.NewInClusterClient()
-	if err != nil {
-		return nil, fmt.Errorf("unable to create k8s client: %s", err)
-	}
-
 	pod := &corev1.Pod{}
-	if err := client.Get(ctx, namespace, name, pod); err != nil {
+	if err := c.k8sClient.Get(ctx, namespace, name, pod); err != nil {
 		return nil, fmt.Errorf("unable to get pod data from API: %s", err)
 	}
 
@@ -47,13 +43,8 @@ func (c *defaultClient) GetPod(ctx context.Context, namespace, name string) (*co
 }
 
 func (c *defaultClient) GetFailureDomainTags(ctx context.Context, pod *corev1.Pod) ([]string, error) {
-	client, err := k8s.NewInClusterClient()
-	if err != nil {
-		return nil, fmt.Errorf("unable to create k8s client: %s", err)
-	}
-
 	node := &corev1.Node{}
-	if err := client.Get(ctx, "", pod.GetSpec().GetNodeName(), node); err != nil {
+	if err := c.k8sClient.Get(ctx, "", pod.GetSpec().GetNodeName(), node); err != nil {
 		return nil, fmt.Errorf("unable to get node data from API: %s", err)
 	}
 	labels := node.GetMetadata().GetLabels()
@@ -79,7 +70,11 @@ type ServiceProvider struct {
 // Get returns slice of services that are configured to be registered in Consul
 // discovery service.
 func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, error) {
-	client := p.client()
+	client, err := p.client()
+
+	if err != nil {
+		return nil, fmt.Errorf("unable create K8S API client: %s", err)
+	}
 
 	podNamespace := os.Getenv(podNamespaceEnvVar)
 	podName := os.Getenv(podNameEnvVar)
@@ -129,9 +124,15 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 	return []consul.ServiceInstance{service}, nil
 }
 
-func (p *ServiceProvider) client() Client {
+func (p *ServiceProvider) client() (Client, error) {
 	if p.Client != nil {
-		return p.Client
+		return p.Client, nil
 	}
-	return &defaultClient{}
+	client, err := k8s.NewInClusterClient()
+	if err != nil {
+		return nil, fmt.Errorf("couldn't initialize client: %s", err)
+	}
+	return &defaultClient{
+		k8sClient: client,
+	}, nil
 }
