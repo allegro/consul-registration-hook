@@ -143,8 +143,6 @@ func TestIfConvertNodeFailureDomainTagsToConsulTags(t *testing.T) {
 	)
 	defer testServer.Close()
 
-	//inClusterClient := NewTestK8sClient(testServer.URL)
-
 	client := &defaultClient{k8sClient: NewTestK8sClient(testServer.URL)}
 
 	tags, err := client.GetFailureDomainTags(context.Background(), pod)
