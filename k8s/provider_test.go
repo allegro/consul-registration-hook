@@ -61,12 +61,7 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 	pod.Spec.Containers[0].Name = &containerName
 	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, &corev1.ContainerPort{ContainerPort: &port})
 
-	client := &MockClient{}
-	client.client.On("GetPod", context.Background(), "", "").
-		Return(pod, nil).Once()
-	client.client.On("GetFailureDomainTags", context.Background(), pod).
-		Return(nil, nil).Once()
-
+	client := getMockedClient(pod)
 	provider := ServiceProvider{
 		Client: client,
 	}
@@ -85,35 +80,85 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 	assert.Equal(t, 8080, service.Port)
 }
 
-func TestIfConvertsLabelsToConsulTags(t *testing.T) {
-	containerName := "name"
+var labelsAndAnnotationsTestCases = []struct {
+	pod *corev1.Pod
+	expectedConsulTags []string
+}{
+	{
+		pod: composeTestCasePod(
+			map[string]string{
+				"CONSUL_TAG_0": "KEY0: VALUE0"}),
+		expectedConsulTags: []string{"KEY0: VALUE0"},
+	},
+	{
+		pod: composeTestCasePod(
+			map[string]string{
+				"CONSUL_TAG_0": "KEY0: VALUE0",
+				"CONSUL_TAG_1": ""}),
+		expectedConsulTags: []string{"KEY0: VALUE0"},
+	},
+	{
+		pod: composeTestCasePod(
+			map[string]string{
+				"CONSUL_TAG_0": "KEY0: VALUE0",
+				"CONSUL_TAG_1": "KEY1: VALUE1"}),
+		expectedConsulTags: []string{"KEY0: VALUE0", "KEY1: VALUE1"},
+	},
+	{
+		pod: composeTestCasePod(
+			map[string]string{
+				"CONSUL_TAG_0": "KEY0: VALUE0",
+				"CONSUL_TAG_1": "KEY1: VALUE1",
+				"CONSUL_TAG_1_a": "KEY2: VALUE2",
+			}),
+		expectedConsulTags: []string{"KEY0: VALUE0", "KEY1: VALUE1", "KEY2: VALUE2"},
+	},
+	{
+		pod: composeTestCasePod(
+			map[string]string{
+				"CONSUL_TAG_0": "KEY0: VALUE0",
+				"CONSUL_TAG_1": "KEY0: VALUE0",
+				"CONSUL_TAG_1_a": "KEY2: VALUE2",
+			}),
+		expectedConsulTags: []string{"KEY0: VALUE0", "KEY0: VALUE0", "KEY2: VALUE2"},
+	},
+}
+
+func composeTestCasePod(annotations map[string]string) *corev1.Pod {
 	port := int32(8080)
+	containerName := "name"
 	pod := testPod()
-	pod.Metadata.Labels["test-tag"] = "tag"
+	pod.Metadata.Annotations = annotations
 	pod.Metadata.Labels[consulLabelKey] = "serviceName"
 	pod.Spec.Containers[0].Name = &containerName
 	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, &corev1.ContainerPort{ContainerPort: &port})
 
+	return pod
+}
+
+func TestLabelsAndAnnotationsToConsulTagsConversion(t *testing.T) {
+	for _, testCase := range labelsAndAnnotationsTestCases {
+		client := getMockedClient(testCase.pod)
+		provider := ServiceProvider{
+			Client: client,
+		}
+
+		services, err := provider.Get(context.Background())
+		require.NoError(t, err)
+		client.client.AssertExpectations(t)
+		require.Len(t, services, 1)
+		service := services[0]
+		assert.ElementsMatch(t, service.Tags, testCase.expectedConsulTags)
+	}
+}
+
+func getMockedClient(pod *corev1.Pod) *MockClient {
 	client := &MockClient{}
 	client.client.On("GetPod", context.Background(), "", "").
 		Return(pod, nil).Once()
 	client.client.On("GetFailureDomainTags", context.Background(), pod).
 		Return(nil, nil).Once()
-
-
-	provider := ServiceProvider{
-		Client: client,
-	}
-
-	services, err := provider.Get(context.Background())
-
-	require.NoError(t, err)
-	require.Len(t, services, 1)
-	client.client.AssertExpectations(t)
-
-	service := services[0]
-	assert.Len(t, service.Tags, 1)
-	assert.Contains(t, service.Tags, "test-tag")
+	return client
 }
 
 func TestIfConvertNodeFailureDomainTagsToConsulTags(t *testing.T) {
@@ -163,6 +208,7 @@ func testPod() *corev1.Pod {
 		Status: &corev1.PodStatus{},
 		Metadata: &metav1.ObjectMeta{
 			Labels: make(map[string]string),
+			Annotations: make(map[string]string),
 		},
 	}
 }
