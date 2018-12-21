@@ -7,14 +7,15 @@ import (
 	"os"
 	"strings"
 
+	"github.com/allegro/consul-registration-hook/consul"
+
 	"github.com/ericchiang/k8s"
 	corev1 "github.com/ericchiang/k8s/apis/core/v1"
-
-	"github.com/allegro/consul-registration-hook/consul"
 )
 
 const (
 	consulLabelKey                  = "consul"
+	consulTagPrefix                 = "CONSUL_TAG_"
 	podNamespaceEnvVar              = "KUBERNETES_POD_NAMESPACE"
 	podNameEnvVar                   = "KUBERNETES_POD_NAME"
 	consulPodNameLabelTemplate      = "k8sPodName: %s"
@@ -113,11 +114,11 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 		service.Tags = append(service.Tags, fmt.Sprintf(consulPodNamespaceLabelTemplate, podNamespace))
 	}
 
-	labels := pod.GetMetadata().GetLabels()
-
-	for key, value := range labels {
-		if value == "tag" {
-			service.Tags = append(service.Tags, key)
+	// annotations allows us to store non alphanumeric values, unlike labels values (alphanumeric, max 63 characters.
+	annotations := pod.GetMetadata().GetAnnotations()
+	for key, value := range annotations {
+		if strings.HasPrefix(key, consulTagPrefix) && len(value) > 0 {
+			service.Tags = append(service.Tags, value)
 		}
 	}
 
