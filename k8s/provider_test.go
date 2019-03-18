@@ -80,8 +80,64 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 	assert.Equal(t, 8080, service.Port)
 }
 
+func TestIfFailsWhenUnableToDetermineIP(t *testing.T) {
+	client := &MockClient{}
+
+	podWithoutIP := composeTestCasePod(nil)
+	emptyIP := ""
+	podWithoutIP.Status.PodIP = &emptyIP
+	client.client.On("GetPod", context.Background(), "", "").
+		Return(podWithoutIP, nil)
+
+	client.client.On("GetFailureDomainTags", context.Background(), podWithoutIP).
+		Return(nil, nil).Once()
+
+	provider := ServiceProvider{
+		Client: client,
+	}
+
+	services, err := provider.Get(context.Background())
+
+	require.Error(t, err)
+	require.Empty(t, services)
+}
+
+func TestIfRetriesWhenInitialIPEmpty(t *testing.T) {
+	client := &MockClient{}
+
+	podWithoutIP := composeTestCasePod(nil)
+	emptyIP := ""
+	podWithoutIP.Status.PodIP = &emptyIP
+	client.client.On("GetPod", context.Background(), "", "").
+		Return(podWithoutIP, nil).Times(3)
+
+	podWithIP := composeTestCasePod(nil)
+	client.client.On("GetPod", context.Background(), "", "").
+		Return(podWithIP, nil).Once()
+
+	client.client.On("GetFailureDomainTags", context.Background(), mock.Anything).
+		Return(nil, nil).Once()
+
+	provider := ServiceProvider{
+		Client: client,
+	}
+
+	services, err := provider.Get(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	client.client.AssertExpectations(t)
+
+	service := services[0]
+
+	assert.Len(t, service.Tags, 0)
+	assert.Equal(t, "192.0.2.2_8080", service.ID)
+	assert.Equal(t, "serviceName", service.Name)
+	assert.Equal(t, 8080, service.Port)
+}
+
 var labelsAndAnnotationsTestCases = []struct {
-	pod *corev1.Pod
+	pod                *corev1.Pod
 	expectedConsulTags []string
 }{
 	{
@@ -107,8 +163,8 @@ var labelsAndAnnotationsTestCases = []struct {
 	{
 		pod: composeTestCasePod(
 			map[string]string{
-				"CONSUL_TAG_0": "KEY0: VALUE0",
-				"CONSUL_TAG_1": "KEY1: VALUE1",
+				"CONSUL_TAG_0":   "KEY0: VALUE0",
+				"CONSUL_TAG_1":   "KEY1: VALUE1",
 				"CONSUL_TAG_1_a": "KEY2: VALUE2",
 			}),
 		expectedConsulTags: []string{"KEY0: VALUE0", "KEY1: VALUE1", "KEY2: VALUE2"},
@@ -116,8 +172,8 @@ var labelsAndAnnotationsTestCases = []struct {
 	{
 		pod: composeTestCasePod(
 			map[string]string{
-				"CONSUL_TAG_0": "KEY0: VALUE0",
-				"CONSUL_TAG_1": "KEY0: VALUE0",
+				"CONSUL_TAG_0":   "KEY0: VALUE0",
+				"CONSUL_TAG_1":   "KEY0: VALUE0",
 				"CONSUL_TAG_1_a": "KEY2: VALUE2",
 			}),
 		expectedConsulTags: []string{"KEY0: VALUE0", "KEY0: VALUE0", "KEY2: VALUE2"},
@@ -144,6 +200,7 @@ func TestLabelsAndAnnotationsToConsulTagsConversion(t *testing.T) {
 		}
 
 		services, err := provider.Get(context.Background())
+
 		require.NoError(t, err)
 		client.client.AssertExpectations(t)
 		require.Len(t, services, 1)
@@ -155,7 +212,7 @@ func TestLabelsAndAnnotationsToConsulTagsConversion(t *testing.T) {
 func getMockedClient(pod *corev1.Pod) *MockClient {
 	client := &MockClient{}
 	client.client.On("GetPod", context.Background(), "", "").
-		Return(pod, nil).Once()
+		Return(pod, nil)
 	client.client.On("GetFailureDomainTags", context.Background(), pod).
 		Return(nil, nil).Once()
 	return client
@@ -197,6 +254,8 @@ func TestIfConvertNodeFailureDomainTagsToConsulTags(t *testing.T) {
 }
 
 func testPod() *corev1.Pod {
+	podIP := "192.0.2.2"
+
 	return &corev1.Pod{
 		Spec: &corev1.PodSpec{
 			Containers: []*corev1.Container{
@@ -205,9 +264,11 @@ func testPod() *corev1.Pod {
 				},
 			},
 		},
-		Status: &corev1.PodStatus{},
+		Status: &corev1.PodStatus{
+			PodIP: &podIP,
+		},
 		Metadata: &metav1.ObjectMeta{
-			Labels: make(map[string]string),
+			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
 		},
 	}
@@ -219,27 +280,26 @@ func testNode() *corev1.Node {
 	labels["failure-domain.beta.kubernetes.io/zone"] = "zone1"
 
 	return &corev1.Node{
-		Spec: &corev1.NodeSpec{},
+		Spec:   &corev1.NodeSpec{},
 		Status: &corev1.NodeStatus{},
 		Metadata: &metav1.ObjectMeta{
-			Name: k8s.String("testNode"),
+			Name:   k8s.String("testNode"),
 			Labels: labels,
 		},
 	}
 }
 
-
-func NewTestK8sClient(url string) (*k8s.Client) {
+func NewTestK8sClient(url string) *k8s.Client {
 	client := &k8s.Client{
-		Endpoint: url,
+		Endpoint:  url,
 		Namespace: "",
-		Client: http.DefaultClient,
+		Client:    http.DefaultClient,
 	}
 	return client
 }
 
 type MockClient struct {
-	client mock.Mock
+	client    mock.Mock
 	k8sClient mock.Mock
 }
 
