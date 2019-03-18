@@ -21,8 +21,6 @@ const (
 	podNameEnvVar                   = "KUBERNETES_POD_NAME"
 	consulPodNameLabelTemplate      = "k8sPodName: %s"
 	consulPodNamespaceLabelTemplate = "k8sPodNamespace: %s"
-
-	getIPTimeoutSeconds = 10
 )
 
 // Client is an interface for client to Kubernetes API.
@@ -68,7 +66,8 @@ func (c *defaultClient) GetFailureDomainTags(ctx context.Context, pod *corev1.Po
 // ServiceProvider is responsible for providing services that should be registered
 // in Consul discovery service.
 type ServiceProvider struct {
-	Client Client
+	Client  Client
+	Timeout time.Duration
 }
 
 // Get returns slice of services that are configured to be registered in Consul
@@ -83,7 +82,7 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 	podNamespace := os.Getenv(podNamespaceEnvVar)
 	podName := os.Getenv(podNameEnvVar)
 
-	pod, err := client.GetPod(ctx, podNamespace, podName)
+	pod, err := p.getPodWithRetry(ctx, client, podNamespace, podName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get pod data from API: %s", err)
 	}
@@ -96,12 +95,6 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 	// TODO(medzin): Allow to specify which containers and ports will be registered
 	container := pod.Spec.Containers[0]
 	host := pod.GetStatus().GetPodIP()
-	if host == "" {
-		host, err = getIPRetry(ctx, client, podNamespace, podName)
-		if err != nil {
-			return nil, fmt.Errorf("unable to get host: %s", err)
-		}
-	}
 	port := int(*container.Ports[0].ContainerPort)
 
 	service := consul.ServiceInstance{
@@ -147,17 +140,17 @@ func (p *ServiceProvider) client() (Client, error) {
 	}, nil
 }
 
-func getIPRetry(ctx context.Context, client Client, podNamespace, podName string) (host string, err error) {
-	ch := make(chan string, 1)
+func (p *ServiceProvider) getPodWithRetry(ctx context.Context, client Client, podNamespace, podName string) (pod *corev1.Pod, err error) {
+	ch := make(chan *corev1.Pod, 1)
+	finished := false
 	go func() {
-		for {
+		for !finished {
 			pod, err := client.GetPod(ctx, podNamespace, podName)
 			if err != nil {
 				log.Printf("unable to get pod data from API: %s", err)
 			} else {
-				ip := pod.GetStatus().GetPodIP()
-				if ip != "" {
-					ch <- ip
+				if pod.GetStatus().GetPodIP() != "" {
+					ch <- pod
 				}
 			}
 			time.Sleep(time.Second)
@@ -166,10 +159,15 @@ func getIPRetry(ctx context.Context, client Client, podNamespace, podName string
 
 	select {
 	case res := <-ch:
+		finished = true
 		close(ch)
 		return res, nil
-	case <-time.After(getIPTimeoutSeconds * time.Second):
+	case <-time.After(p.Timeout):
+		finished = true
 		close(ch)
-		return "", fmt.Errorf("could not determine IP address after %d seconds", getIPTimeoutSeconds)
+		if err != nil {
+			return nil, fmt.Errorf("could not get valid Pod data after %s seconds: %s", p.Timeout, err)
+		}
+		return nil, fmt.Errorf("could not get valid Pod data after %s", p.Timeout)
 	}
 }

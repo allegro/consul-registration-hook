@@ -16,15 +16,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"time"
 )
 
 func TestIfFailsIfKubernetesAPIFails(t *testing.T) {
 	client := &MockClient{}
 	client.client.On("GetPod", context.Background(), "", "").
-		Return(nil, errors.New("error")).Once()
+		Return(nil, errors.New("error"))
 
 	provider := ServiceProvider{
 		Client: client,
+		Timeout: 2 * time.Second,
 	}
 
 	services, err := provider.Get(context.Background())
@@ -42,6 +44,7 @@ func TestIfReturnsEmptySliceToPodIsNotLabelledCorrectly(t *testing.T) {
 
 	provider := ServiceProvider{
 		Client: client,
+		Timeout: 1 * time.Second,
 	}
 
 	services, err := provider.Get(context.Background())
@@ -64,6 +67,7 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 	client := getMockedClient(pod)
 	provider := ServiceProvider{
 		Client: client,
+		Timeout: 1 * time.Second,
 	}
 
 	services, err := provider.Get(context.Background())
@@ -94,6 +98,7 @@ func TestIfFailsWhenUnableToDetermineIP(t *testing.T) {
 
 	provider := ServiceProvider{
 		Client: client,
+		Timeout: 1 * time.Second,
 	}
 
 	services, err := provider.Get(context.Background())
@@ -120,6 +125,7 @@ func TestIfRetriesWhenInitialIPEmpty(t *testing.T) {
 
 	provider := ServiceProvider{
 		Client: client,
+		Timeout: 10 * time.Second,
 	}
 
 	services, err := provider.Get(context.Background())
@@ -197,6 +203,7 @@ func TestLabelsAndAnnotationsToConsulTagsConversion(t *testing.T) {
 		client := getMockedClient(testCase.pod)
 		provider := ServiceProvider{
 			Client: client,
+			Timeout: 1 * time.Second,
 		}
 
 		services, err := provider.Get(context.Background())
