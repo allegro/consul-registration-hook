@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/urfave/cli"
 
@@ -13,7 +14,12 @@ import (
 	"github.com/allegro/consul-registration-hook/mesos"
 )
 
-var consulACLFileFlag = "consul-acl-file"
+const (
+	flagGetPodTimeout    = "get-pod-timeout"
+	envVarGetPodTimeout  = "KUBERNETES_GET_POD_TIMEOUT"
+	defaultGetPodTimeout = 10 * time.Second
+	consulACLFileFlag    = "consul-acl-file"
+)
 
 var commands = []cli.Command{
 	{
@@ -29,7 +35,7 @@ var commands = []cli.Command{
 					// TODO(medzin): Add support for timeout here
 					services, err := provider.Get(context.Background())
 					if err != nil {
-						return fmt.Errorf("Error getting services to register: %s", err)
+						return fmt.Errorf("error getting services to register: %s", err)
 					}
 					log.Printf("Found %d services to register", len(services))
 					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
@@ -42,16 +48,26 @@ var commands = []cli.Command{
 				Usage: "register using data from Kubernetes API",
 				Action: func(c *cli.Context) error {
 					log.Print("Registering services using data from Kubernetes API")
-					provider := k8s.ServiceProvider{}
+					provider := k8s.ServiceProvider{
+						Timeout: c.Duration(flagGetPodTimeout),
+					}
 					// TODO(medzin): Add support for timeout here
 					services, err := provider.Get(context.Background())
 					if err != nil {
-						return fmt.Errorf("Error getting services to register: %s", err)
+						return fmt.Errorf("error getting services to register: %s", err)
 					}
 					log.Printf("Found %d services to register", len(services))
 					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
 					agent := consul.NewAgent(aclTokenFile)
 					return agent.Register(services)
+				},
+				Flags: []cli.Flag{
+					cli.DurationFlag{
+						Name:   flagGetPodTimeout,
+						Usage:  "change timeout for fetching pod info",
+						EnvVar: envVarGetPodTimeout,
+						Value:  defaultGetPodTimeout,
+					},
 				},
 			},
 		},
@@ -69,7 +85,7 @@ var commands = []cli.Command{
 					// TODO(medzin): Add support for timeout here
 					services, err := provider.Get(context.Background())
 					if err != nil {
-						return fmt.Errorf("Error getting services to deregister: %s", err)
+						return fmt.Errorf("error getting services to deregister: %s", err)
 					}
 					log.Printf("Found %d services to deregister", len(services))
 					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
@@ -86,7 +102,7 @@ var commands = []cli.Command{
 					// TODO(medzin): Add support for timeout here
 					services, err := provider.Get(context.Background())
 					if err != nil {
-						return fmt.Errorf("Error getting services to deregister: %s", err)
+						return fmt.Errorf("error getting services to deregister: %s", err)
 					}
 					log.Printf("Found %d services to deregister", len(services))
 					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
