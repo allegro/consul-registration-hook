@@ -18,7 +18,7 @@ const (
 	consulTagPrefix                 = "CONSUL_TAG_"
 	podNamespaceEnvVar              = "KUBERNETES_POD_NAMESPACE"
 	podNameEnvVar                   = "KUBERNETES_POD_NAME"
-        consulSvcEnvVar			= "CONSUL_SVC"
+	consulSvcEnvVar                 = "CONSUL_SVC"
 	consulPodNameLabelTemplate      = "k8sPodName: %s"
 	consulPodNamespaceLabelTemplate = "k8sPodNamespace: %s"
 )
@@ -80,13 +80,11 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 	}
 
 	podNamespace := os.Getenv(podNamespaceEnvVar)
-        if os.Getenv(consulSvcEnvVar) != "" {
-          serviceName := os.Getenv(consulSvcEnvVar)
+	serviceName := ""
+	if os.Getenv(consulSvcEnvVar) != "" {
+		serviceName := os.Getenv(consulSvcEnvVar)
 	} else {
-	  serviceName, ok := pod.Metadata.Labels['consulsvc']
-	  if !ok {
-                return nil, nil
-          }
+		return nil, nil
 	}
 	podName := os.Getenv(podNameEnvVar)
 
