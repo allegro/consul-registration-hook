@@ -80,9 +80,9 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 	}
 
 	podNamespace := os.Getenv(podNamespaceEnvVar)
-	serviceName := ""
+	var serviceName = ""
 	if os.Getenv(consulSvcEnvVar) != "" {
-		serviceName := os.Getenv(consulSvcEnvVar)
+		serviceName = os.Getenv(consulSvcEnvVar)
 	} else {
 		return nil, nil
 	}
