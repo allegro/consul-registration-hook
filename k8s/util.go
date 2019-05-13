@@ -8,7 +8,7 @@ import (
 
 	corev1 "github.com/ericchiang/k8s/apis/core/v1"
 
-	"github.com/allegro/consul-registration-hook/consul"
+	"github.com/wix-playground/consul-registration-hook/consul"
 )
 
 const defaultScheme = "http"

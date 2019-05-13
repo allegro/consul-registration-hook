@@ -9,9 +9,9 @@ import (
 
 	"github.com/urfave/cli"
 
-	"github.com/allegro/consul-registration-hook/consul"
-	"github.com/allegro/consul-registration-hook/k8s"
-	"github.com/allegro/consul-registration-hook/mesos"
+	"github.com/wix-playground/consul-registration-hook/consul"
+	"github.com/wix-playground/consul-registration-hook/k8s"
+	"github.com/wix-playground/consul-registration-hook/mesos"
 )
 
 const (
@@ -49,7 +49,7 @@ var commands = []cli.Command{
 				Action: func(c *cli.Context) error {
 					log.Print("Registering services using data from Kubernetes API")
 					provider := k8s.ServiceProvider{
-						Timeout: c.Duration(flagGetPodTimeout),
+						Timeout: defaultGetPodTimeout,
 					}
 					// TODO(medzin): Add support for timeout here
 					services, err := provider.Get(context.Background())

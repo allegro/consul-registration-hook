@@ -8,17 +8,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/allegro/consul-registration-hook/consul"
+	"github.com/wix-playground/consul-registration-hook/consul"
 
 	"github.com/ericchiang/k8s"
 	corev1 "github.com/ericchiang/k8s/apis/core/v1"
 )
 
 const (
-	consulLabelKey                  = "consul"
 	consulTagPrefix                 = "CONSUL_TAG_"
 	podNamespaceEnvVar              = "KUBERNETES_POD_NAMESPACE"
 	podNameEnvVar                   = "KUBERNETES_POD_NAME"
+        consulSvcEnvVar			= "CONSUL_SVC"
 	consulPodNameLabelTemplate      = "k8sPodName: %s"
 	consulPodNamespaceLabelTemplate = "k8sPodNamespace: %s"
 )
@@ -80,16 +80,19 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 	}
 
 	podNamespace := os.Getenv(podNamespaceEnvVar)
+        if os.Getenv(consulSvcEnvVar) != "" {
+          serviceName := os.Getenv(consulSvcEnvVar)
+	} else {
+	  serviceName, ok := pod.Metadata.Labels['consulsvc']
+	  if !ok {
+                return nil, nil
+          }
+	}
 	podName := os.Getenv(podNameEnvVar)
 
 	pod, err := p.getPodWithRetry(ctx, client, podNamespace, podName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get pod data from API: %s", err)
-	}
-
-	serviceName, ok := pod.Metadata.Labels[consulLabelKey]
-	if !ok {
-		return nil, nil
 	}
 
 	// TODO(medzin): Allow to specify which containers and ports will be registered
@@ -153,7 +156,7 @@ func (p *ServiceProvider) getPodWithRetry(ctx context.Context, client Client, po
 					ch <- pod
 				}
 			}
-			time.Sleep(time.Second)
+			time.Sleep(2 * time.Second)
 		}
 	}()
 

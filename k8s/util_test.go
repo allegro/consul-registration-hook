@@ -8,7 +8,7 @@ import (
 	"github.com/ericchiang/k8s/util/intstr"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/allegro/consul-registration-hook/consul"
+	"github.com/wix-playground/consul-registration-hook/consul"
 )
 
 func TestIfConvertsNilProbeToNilCheck(t *testing.T) {

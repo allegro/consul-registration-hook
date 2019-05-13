@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/allegro/consul-registration-hook/consul"
+	"github.com/wix-playground/consul-registration-hook/consul"
 )
 
 const consulLabelKey = "consul"

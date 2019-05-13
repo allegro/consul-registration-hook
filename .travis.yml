@@ -4,7 +4,7 @@ go:
 
 sudo: required
 
-go_import_path: github.com/allegro/consul-registration-hook
+go_import_path: github.com/wix-playground/consul-registration-hook
 
 env:
   - CHANGE_MINIKUBE_NONE_USER=true
