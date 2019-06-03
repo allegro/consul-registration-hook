@@ -98,7 +98,9 @@ var commands = []cli.Command{
 				Usage: "deregister using data from Kubernetes API",
 				Action: func(c *cli.Context) error {
 					log.Print("Deregistering services using data from Kubernetes API")
-					provider := k8s.ServiceProvider{}
+					provider := k8s.ServiceProvider{
+						Timeout: defaultGetPodTimeout,
+					}
 					// TODO(medzin): Add support for timeout here
 					services, err := provider.Get(context.Background())
 					if err != nil {
