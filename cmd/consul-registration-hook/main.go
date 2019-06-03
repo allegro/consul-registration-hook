@@ -81,7 +81,9 @@ var commands = []cli.Command{
 				Usage: "deregister using data from Mesos Agent API",
 				Action: func(c *cli.Context) error {
 					log.Print("Deregistering services using data from Mesos API")
-					provider := mesos.ServiceProvider{}
+					provider := k8s.ServiceProvider{
+						Timeout: defaultGetPodTimeout,
+					}
 					// TODO(medzin): Add support for timeout here
 					services, err := provider.Get(context.Background())
 					if err != nil {
