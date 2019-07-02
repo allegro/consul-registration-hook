@@ -5,6 +5,7 @@ go:
 sudo: required
 go_import_path: github.com/allegro/consul-registration-hook
 env:
+- CGO_ENABLED=0
 - CHANGE_MINIKUBE_NONE_USER=true
 before_script:
 - scripts/install_local_k8s.sh
