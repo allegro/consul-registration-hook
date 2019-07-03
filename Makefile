@@ -12,10 +12,10 @@ THIS_FILE := $(lastword $(MAKEFILE_LIST))
 all: lint test build
 
 build:
-	go build -v -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(NAME) ./cmd/$(NAME)
+	CGO_ENABLED=0 go build -v -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(NAME) ./cmd/$(NAME)
 
 build-linux:
-	GOOS=linux $(MAKE) -f $(THIS_FILE) build
+	GOOS=linux CGO_ENABLED=0 $(MAKE) -f $(THIS_FILE) build
 
 package: build
 	tar -czvf $(BUILD_DIR)/$(NAME)-$(VERSION)-$(OS)-$(ARCH).tar.gz -C $(BUILD_DIR) $(NAME)
