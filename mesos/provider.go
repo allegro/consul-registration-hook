@@ -5,11 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/allegro/consul-registration-hook/consul"
 )
 
-const consulLabelKey = "consul"
+const (
+	consulLabelKey  = "consul"
+	consulTagValue  = "tag"
+	portPlaceholder = "{port:%s}"
+)
 
 // ServiceProvider is responsible for providing services that should be registered
 // in Consul discovery service.
@@ -41,24 +46,30 @@ func (p *ServiceProvider) buildServices(t task) ([]consul.ServiceInstance, error
 	}
 
 	var services []consul.ServiceInstance
-	var tags []string
+	var globalTags []string
 
 	for _, label := range t.Labels {
-		if label.Value == "tag" {
-			tags = append(tags, label.Key)
+		if label.Value == consulTagValue {
+			globalTags = append(globalTags, label.Key)
 		}
 	}
+
+	marathonTaskTag := fmt.Sprintf("marathon-task:%s", t.ID)
+	globalTags = append(globalTags, marathonTaskTag)
+	tagPlaceholders := getPlaceholders(t.Discovery.Ports.Ports)
 
 	// TODO(medzin): add check conversion after MESOS-8780 is completed
 	// See: https://issues.apache.org/jira/browse/MESOS-8780
 	for _, port := range t.Discovery.Ports.Ports {
-		if consulServiceName := p.getConsulServiceName(port.Labels); consulServiceName != "" {
+		if consulServiceName := p.getConsulServiceName(port.Labels.Labels); consulServiceName != "" {
+			portTags := p.getPortLabels(port.Labels.Labels, tagPlaceholders)
+
 			service := consul.ServiceInstance{
 				ID:   fmt.Sprintf("%s_%d", hostname, port.Number),
 				Name: consulServiceName,
 				Host: hostname,
 				Port: port.Number,
-				Tags: tags,
+				Tags: append(portTags, globalTags...),
 			}
 			services = append(services, service)
 		}
@@ -72,13 +83,28 @@ func (p *ServiceProvider) buildServices(t task) ([]consul.ServiceInstance, error
 				Name: consulServiceName,
 				Host: hostname,
 				Port: port,
-				Tags: tags,
+				Tags: globalTags,
 			}
 			services = append(services, service)
 		}
 	}
 
 	return services, nil
+}
+
+func (p *ServiceProvider) getPortLabels(labels []label, tagPlaceholders map[string]string) []string {
+	var portLabels []string
+	for _, label := range labels {
+		if label.Value == consulTagValue {
+			for placeholder, replacement := range tagPlaceholders {
+				if strings.Contains(label.Key, placeholder) {
+					label.Key = strings.Replace(label.Key, placeholder, replacement, -1)
+				}
+			}
+			portLabels = append(portLabels, label.Key)
+		}
+	}
+	return portLabels
 }
 
 func (p *ServiceProvider) client() agentClient {
@@ -133,4 +159,16 @@ func (p *ServiceProvider) getTaskFromState(state state) (task, error) {
 	}
 
 	return task{}, errors.New("no task in executor")
+}
+
+func getPlaceholders(ports []port) map[string]string {
+	placeholders := map[string]string{}
+	for _, port := range ports {
+		name := port.Name
+		if name != "" {
+			placeholder := fmt.Sprintf(portPlaceholder, name)
+			placeholders[placeholder] = fmt.Sprint(port.Number)
+		}
+	}
+	return placeholders
 }

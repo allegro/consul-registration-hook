@@ -62,7 +62,7 @@ func TestIfReturnsServicesToRegisterBasedOnPortLabels(t *testing.T) {
 				Labels: []label{label{Key: "consul", Value: "invalid-name"}},
 				Discovery: discovery{Ports: ports{Ports: []port{port{
 					Number: 1234,
-					Labels: []label{label{Key: "consul", Value: "valid-name"}},
+					Labels: labels{Labels: []label{label{Key: "consul", Value: "valid-name"}}},
 				}}}},
 			}},
 		}},
@@ -83,6 +83,93 @@ func TestIfReturnsServicesToRegisterBasedOnPortLabels(t *testing.T) {
 	assert.Equal(t, "valid-name", serviceInstances[0].Name)
 	assert.Equal(t, "hostname", serviceInstances[0].Host)
 	assert.Equal(t, 1234, serviceInstances[0].Port)
+}
+
+func TestIfReturnsServicesPortPlaceholders(t *testing.T) {
+	os.Setenv("MESOS_EXECUTOR_ID", "executor_id")
+	os.Setenv("MESOS_FRAMEWORK_ID", "framework_id")
+	os.Setenv("HOST", "hostname")
+	defer os.Unsetenv("MESOS_EXECUTOR_ID")
+	defer os.Unsetenv("MESOS_FRAMEWORK_ID")
+	defer os.Unsetenv("HOST")
+
+	s := state{Frameworks: []framework{framework{
+		ID: "framework_id",
+		Executors: []executor{executor{
+			ID: "executor_id",
+			Tasks: []task{task{
+				Labels: []label{label{Key: "consul", Value: "invalid-name"}},
+				Discovery: discovery{Ports: ports{Ports: []port{port{
+					Number: 1234,
+					Labels: labels{Labels: []label{label{Key: "consul", Value: "valid-name"}, label{Key: "service-port:{port:service}", Value: "tag"}}},
+				}, port{
+					Number: 4556,
+					Name:   "service",
+				}}}},
+			}},
+		}},
+	}}}
+
+	agentClient := &mockAgentClient{}
+	agentClient.On("state").Return(s, nil)
+
+	serviceProvider := ServiceProvider{
+		agentClient: agentClient,
+	}
+
+	serviceInstances, err := serviceProvider.Get(context.Background())
+
+	require.NoError(t, err)
+	require.NotEmpty(t, serviceInstances)
+	assert.Equal(t, "hostname_1234", serviceInstances[0].ID)
+	assert.Equal(t, "valid-name", serviceInstances[0].Name)
+	assert.Equal(t, "hostname", serviceInstances[0].Host)
+	assert.Equal(t, 1234, serviceInstances[0].Port)
+	assert.Contains(t, serviceInstances[0].Tags, "service-port:4556")
+}
+
+func TestIfReturnsServicesMarthonTaskTag(t *testing.T) {
+	os.Setenv("MESOS_EXECUTOR_ID", "executor_id")
+	os.Setenv("MESOS_FRAMEWORK_ID", "framework_id")
+	os.Setenv("HOST", "hostname")
+	defer os.Unsetenv("MESOS_EXECUTOR_ID")
+	defer os.Unsetenv("MESOS_FRAMEWORK_ID")
+	defer os.Unsetenv("HOST")
+
+	s := state{Frameworks: []framework{framework{
+		ID: "framework_id",
+		Executors: []executor{executor{
+			ID: "executor_id",
+			Tasks: []task{task{
+				ID:     "executor_id_inside_task",
+				Labels: []label{label{Key: "consul", Value: "invalid-name"}},
+				Discovery: discovery{Ports: ports{Ports: []port{port{
+					Number: 1234,
+					Labels: labels{Labels: []label{label{Key: "consul", Value: "valid-name"}, label{Key: "service-port:{port:service}", Value: "tag"}}},
+				}, port{
+					Number: 4556,
+					Name:   "service",
+				}}}},
+			}},
+		}},
+	}}}
+
+	agentClient := &mockAgentClient{}
+	agentClient.On("state").Return(s, nil)
+
+	serviceProvider := ServiceProvider{
+		agentClient: agentClient,
+	}
+
+	serviceInstances, err := serviceProvider.Get(context.Background())
+
+	require.NoError(t, err)
+	require.NotEmpty(t, serviceInstances)
+	assert.Equal(t, "hostname_1234", serviceInstances[0].ID)
+	assert.Equal(t, "valid-name", serviceInstances[0].Name)
+	assert.Equal(t, "hostname", serviceInstances[0].Host)
+	assert.Equal(t, 1234, serviceInstances[0].Port)
+	assert.Contains(t, serviceInstances[0].Tags, "marathon-task:executor_id_inside_task")
 }
 
 func TestIfNotPanicsWithEmptyPorts(t *testing.T) {
@@ -161,6 +248,7 @@ func TestIfConvertsMesosLabelsToConsulTags(t *testing.T) {
 		Executors: []executor{executor{
 			ID: "executor_id",
 			Tasks: []task{task{
+				ID: "executor_id_inside_task",
 				Labels: []label{
 					label{Key: "consul", Value: "name"},
 					label{Key: "tag1", Value: "tag"},
@@ -182,7 +270,7 @@ func TestIfConvertsMesosLabelsToConsulTags(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotEmpty(t, serviceInstances)
-	assert.Equal(t, []string{"tag1", "tag2"}, serviceInstances[0].Tags)
+	assert.Equal(t, []string{"tag1", "tag2", "marathon-task:executor_id_inside_task"}, serviceInstances[0].Tags)
 }
 
 type mockAgentClient struct {
