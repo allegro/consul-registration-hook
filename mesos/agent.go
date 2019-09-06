@@ -17,10 +17,15 @@ type label struct {
 	Value string
 }
 
+type labels struct {
+	Labels []label
+}
+
 type port struct {
 	Number   int
 	Protocol string
-	Labels   []label
+	Name     string
+	Labels   labels
 }
 
 type ports struct {
