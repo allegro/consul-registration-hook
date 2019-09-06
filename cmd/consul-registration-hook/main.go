@@ -98,7 +98,9 @@ var commands = []cli.Command{
 				Usage: "deregister using data from Kubernetes API",
 				Action: func(c *cli.Context) error {
 					log.Print("Deregistering services using data from Kubernetes API")
-					provider := k8s.ServiceProvider{}
+					provider := k8s.ServiceProvider{
+						Timeout: c.Duration(flagGetPodTimeout),
+					}
 					// TODO(medzin): Add support for timeout here
 					services, err := provider.Get(context.Background())
 					if err != nil {
@@ -108,6 +110,14 @@ var commands = []cli.Command{
 					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
 					agent := consul.NewAgent(aclTokenFile)
 					return agent.Deregister(services)
+				},
+				Flags: []cli.Flag{
+					cli.DurationFlag{
+						Name:   flagGetPodTimeout,
+						Usage:  "change timeout for fetching pod info",
+						EnvVar: envVarGetPodTimeout,
+						Value:  defaultGetPodTimeout,
+					},
 				},
 			},
 		},
