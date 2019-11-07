@@ -95,7 +95,7 @@ func (a *Agent) Deregister(services []ServiceInstance) error {
 	var errs []error
 
 	for _, service := range services {
-		log.Printf("Deregistering %q service in Consul agent", service.Name)
+		log.Printf("Deregistering %q service in Consul agent", service.ID)
 		if err := a.agentClient.ServiceDeregister(service.ID); err != nil {
 			errs = append(errs, err)
 		}
