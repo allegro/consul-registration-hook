@@ -10,11 +10,30 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/allegro/consul-registration-hook/consul"
+	"github.com/allegro/consul-registration-hook/hookflags"
 	"github.com/allegro/consul-registration-hook/k8s"
 	"github.com/allegro/consul-registration-hook/mesos"
 )
 
 const (
+	flagServiceName   = "service-name"
+	envVarServiceName = "KUBERNETES_SERVICE_NAME"
+
+	flagPodIP   = "pod-ip"
+	envVarPodIP = "KUBERNETES_POD_IP"
+
+	flagContainerPort   = "container-port"
+	envVarContainerPort = "KUBERNETES_CONTAINER_PORT"
+
+	flagServiceTags   = "service-tags"
+	envVarServiceTags = "KUBERNETES_SERVICE_TAGS"
+
+	flagCheckPath   = "check-path"
+	envVarCheckPath = "KUBERNETES_CHECK_PATH"
+
+	flagServiceID = "service-id"
+	envServiceID  = "KUBERNETES_SERVICE_ID"
+
 	flagGetPodTimeout    = "get-pod-timeout"
 	envVarGetPodTimeout  = "KUBERNETES_GET_POD_TIMEOUT"
 	defaultGetPodTimeout = 10 * time.Second
@@ -23,8 +42,11 @@ const (
 
 var commands = []cli.Command{
 	{
-		Name:  "register",
-		Usage: "register service into Consul discovery service",
+		Name: "register",
+		Usage: "register service into Consul discovery service.\n\n" +
+			"Consul env variables:\n" +
+			"- CONSUL_HTTP_ADDR - addr used to register services,\n" +
+			"- DISCOVERY_CONSUL_HOST - host used to query for services.\n",
 		Subcommands: []cli.Command{
 			{
 				Name:  "mesos",
@@ -67,6 +89,55 @@ var commands = []cli.Command{
 						Usage:  "change timeout for fetching pod info",
 						EnvVar: envVarGetPodTimeout,
 						Value:  defaultGetPodTimeout,
+					},
+				},
+			},
+			{
+				Name:  "cli",
+				Usage: "register using data from cli",
+				Action: func(c *cli.Context) error {
+					log.Print("Registering services using data from cli. Set CONSUL_HTTP_ADDR env to appropriate agent.")
+					provider := hookflags.ServiceProvider{
+						FlagServiceName:   flagServiceName,
+						FlagPodIP:         flagPodIP,
+						FlagContainerPort: flagContainerPort,
+						FlagServiceTags:   flagServiceTags,
+						FlagCheckPath:     flagCheckPath,
+						CLIContext:        c,
+					}
+					services, err := provider.Get(context.Background())
+					if err != nil {
+						return fmt.Errorf("error getting services to register: %s", err)
+					}
+					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
+					agent := consul.NewAgent(aclTokenFile)
+					return agent.Register(services)
+				},
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:   flagServiceName,
+						Usage:  "service name to register by cli",
+						EnvVar: envVarServiceName,
+					},
+					cli.StringFlag{
+						Name:   flagPodIP,
+						Usage:  "pod ip to register in consul",
+						EnvVar: envVarPodIP,
+					},
+					cli.IntFlag{
+						Name:   flagContainerPort,
+						Usage:  "container port to register in consul",
+						EnvVar: envVarContainerPort,
+					},
+					cli.StringFlag{
+						Name:   flagServiceTags,
+						Usage:  "tags to register in consul (comma delimited values: k8sPodNamespace:default,scUid:sc-11298,default-monitoring)",
+						EnvVar: envVarServiceTags,
+					},
+					cli.StringFlag{
+						Name:   flagCheckPath,
+						Usage:  "health check to register in consul",
+						EnvVar: envVarCheckPath,
 					},
 				},
 			},
@@ -117,6 +188,29 @@ var commands = []cli.Command{
 						Usage:  "change timeout for fetching pod info",
 						EnvVar: envVarGetPodTimeout,
 						Value:  defaultGetPodTimeout,
+					},
+				},
+			},
+			{
+				Name:  "cli",
+				Usage: "Deregister using data from cli. Set CONSUL_HTTP_ADDR env to appropriate agent.",
+				Action: func(c *cli.Context) error {
+					log.Print("Deregistering services using data from cli")
+					services := []consul.ServiceInstance{
+						{
+							ID: c.String(flagServiceID),
+						},
+					}
+
+					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
+					agent := consul.NewAgent(aclTokenFile)
+					return agent.Deregister(services)
+				},
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:   flagServiceID,
+						Usage:  "consul service-id to deregister by cli",
+						EnvVar: envServiceID,
 					},
 				},
 			},
