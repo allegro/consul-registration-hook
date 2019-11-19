@@ -74,7 +74,6 @@ type ServiceProvider struct {
 // discovery service.
 func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, error) {
 	client, err := p.client()
-
 	if err != nil {
 		return nil, fmt.Errorf("unable create K8S API client: %s", err)
 	}
@@ -92,39 +91,27 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 		return nil, nil
 	}
 
-	// TODO(medzin): Allow to specify which containers and ports will be registered
-	container := pod.Spec.Containers[0]
-	host := pod.GetStatus().GetPodIP()
-	port := int(*container.Ports[0].ContainerPort)
-
-	service := consul.ServiceInstance{
-		ID:    fmt.Sprintf("%s_%d", host, port),
-		Name:  serviceName,
-		Host:  host,
-		Port:  port,
-		Check: ConvertToConsulCheck(container.LivenessProbe, host),
-	}
-
 	failureDomainTags, err := client.GetFailureDomainTags(ctx, pod)
 	if err != nil {
 		log.Printf("Won't include failure domain data in registration: %s", err)
-	} else {
-		service.Tags = append(service.Tags, failureDomainTags...)
 	}
+	var globalTags []string
+
 	if podName != "" && podNamespace != "" {
-		service.Tags = append(service.Tags, fmt.Sprintf(consulPodNameLabelTemplate, podName))
-		service.Tags = append(service.Tags, fmt.Sprintf(consulPodNamespaceLabelTemplate, podNamespace))
+		globalTags = append(globalTags, fmt.Sprintf(consulPodNameLabelTemplate, podName))
+		globalTags = append(globalTags, fmt.Sprintf(consulPodNamespaceLabelTemplate, podNamespace))
 	}
+	globalTags = append(globalTags, failureDomainTags...)
 
 	// annotations allows us to store non alphanumeric values, unlike labels values (alphanumeric, max 63 characters.
 	annotations := pod.GetMetadata().GetAnnotations()
 	for key, value := range annotations {
 		if strings.HasPrefix(key, consulTagPrefix) && len(value) > 0 {
-			service.Tags = append(service.Tags, value)
+			globalTags = append(globalTags, value)
 		}
 	}
 
-	return []consul.ServiceInstance{service}, nil
+	return generateServices(serviceName, pod, globalTags)
 }
 
 func (p *ServiceProvider) client() (Client, error) {
@@ -170,4 +157,66 @@ func (p *ServiceProvider) getPodWithRetry(ctx context.Context, client Client, po
 		}
 		return nil, fmt.Errorf("could not get valid Pod data after %s", p.Timeout)
 	}
+}
+
+func generateServices(serviceName string, pod *corev1.Pod, globalTags []string) ([]consul.ServiceInstance, error) {
+	portDefinitions, err := getPortDefinitions()
+	if err != nil {
+		return nil, err
+	}
+
+	if portDefinitions == nil {
+		return generateFromContainerPorts(serviceName, pod, globalTags)
+	}
+	return generateFromPortDefinitions(serviceName, portDefinitions, pod, globalTags)
+}
+
+func generateFromContainerPorts(serviceName string, pod *corev1.Pod, globalTags []string) ([]consul.ServiceInstance, error) {
+	// this method exists only to provide backward compatibility
+	container := pod.Spec.Containers[0]
+	host := pod.GetStatus().GetPodIP()
+	port := int(*container.Ports[0].ContainerPort)
+
+	service := consul.ServiceInstance{
+		ID:    fmt.Sprintf("%s_%d", host, port),
+		Name:  serviceName,
+		Host:  host,
+		Port:  port,
+		Check: ConvertToConsulCheck(container.LivenessProbe, host),
+	}
+	service.Tags = append(service.Tags, globalTags...)
+
+	return []consul.ServiceInstance{service}, nil
+}
+
+func generateFromPortDefinitions(serviceName string, portDefinitions *portDefinitions, pod *corev1.Pod, globalTags []string) ([]consul.ServiceInstance, error) {
+	var services []consul.ServiceInstance
+	host := pod.GetStatus().GetPodIP()
+	// TODO(tz) - provide container id with readiness probe
+	container := pod.Spec.Containers[0]
+
+	for _, portDefinition := range *(portDefinitions) {
+		labeledServiceName := portDefinition.labelForConsul()
+		if labeledServiceName != "" {
+			serviceName = labeledServiceName
+		}
+
+		if portDefinition.isService() || labeledServiceName != "" {
+			service := consul.ServiceInstance{
+				ID:    fmt.Sprintf("%s_%d", host, portDefinition.Port),
+				Name:  serviceName,
+				Host:  host,
+				Port:  portDefinition.Port,
+				Check: ConvertToConsulCheck(container.LivenessProbe, host),
+				Tags:  globalTags,
+			}
+			service.Tags = append(service.Tags, portDefinition.getTags()...)
+			services = append(services, service)
+		} else if portDefinition.isProbe() {
+			// probe is taken from liveness probe of first container, it is assumet to match this one
+			// TODO(tz) - compare port with liveness probe
+			continue
+		}
+	}
+	return services, nil
 }

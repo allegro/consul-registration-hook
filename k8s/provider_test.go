@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/allegro/consul-registration-hook/consul"
 	"github.com/ericchiang/k8s"
 	"github.com/ericchiang/k8s/runtime"
 	"github.com/golang/protobuf/proto"
@@ -351,3 +352,107 @@ func marshalPB(obj interface{}) ([]byte, error) {
 	copy(d[len(magicBytes):], body)
 	return d, nil
 }
+
+func TestGenerateServicesWithPropperHealthCheck(t *testing.T) {
+	setEnv(t, "testdata/port_definitions_probe_and_service_only.json")
+	defer unsetEnv(t)
+
+	pod := testPod()
+	path := "/status/ping"
+	pod.Spec.Containers[0].LivenessProbe = &corev1.Probe{
+		Handler: &corev1.Handler{
+			HttpGet: &corev1.HTTPGetAction{
+				Path: &path,
+			},
+		},
+	}
+	expectedServices := []consul.ServiceInstance{
+		{
+			Check: &consul.Check{
+				Address: "http://192.0.2.2:0/status/ping",
+				Type: "HTTP_GET",
+			},
+		},
+	}
+
+	services, err := generateServices("serviceName", pod, nil)
+	require.NoError(t, err)
+
+	assert.Len(t, services, 1)
+	assert.Equal(t, expectedServices[0].Check, services[0].Check)
+}
+
+func TestCheckOneServiceFromWithProperTags(t *testing.T) {
+	setEnv(t, "testdata/port_definitions_probe_and_service_only.json")
+	defer unsetEnv(t)
+
+	pod := testPod()
+	tags := []string{"a", "b", "c"}
+	expectedServices := []consul.ServiceInstance{
+		{
+			Tags: []string{
+				"a", "b", "c",
+			},
+		},
+	}
+
+	services, err := generateServices("serviceName", pod, tags)
+	require.NoError(t, err)
+
+	assert.Len(t, services, 1)
+	assert.Equal(t, expectedServices[0].Tags, services[0].Tags)
+}
+
+func TestShouldCheckMultipleServicesWithGlobalTagsCombinedAndWithPortSpecificTags(t *testing.T) {
+	setEnv(t, "testdata/port_definitions_service_probe_secured.json")
+	defer unsetEnv(t)
+	pod := testPod()
+	tags := []string{"a", "b", "c"}
+	expectedServices := []consul.ServiceInstance{
+		{
+			Tags: []string{"a", "b", "c"},
+		},
+		{
+			Tags: []string{"a", "b", "c", "secureConnection:true"},
+		},
+		{
+			Tags: []string{"a", "b", "c", "service-port:31000", "frontend:generic-app", "envoy"},
+		},
+	}
+
+	services, err := generateServices("serviceName", pod, tags)
+	require.NoError(t, err)
+
+
+	assert.Len(t, services, 3)
+	for i, service := range services {
+		assert.Equal(t, expectedServices[i].Tags, service.Tags)
+	}
+}
+
+func TestShouldCheckMultipleServiceNames(t *testing.T) {
+	setEnv(t, "testdata/port_definitions_service_probe_secured.json")
+	defer unsetEnv(t)
+	pod := testPod()
+	tags := []string{"a", "b", "c"}
+	expectedServices := []consul.ServiceInstance{
+		{
+			Name: "serviceName",
+		},
+		{
+			Name: "generic-app-secured",
+		},
+		{
+			Name: "generic-app-frontend",
+		},
+	}
+
+	services, err := generateServices("serviceName", pod, tags)
+	require.NoError(t, err)
+
+	assert.Len(t, services, 3)
+	for i, service := range services {
+		assert.Equal(t, expectedServices[i].Name, service.Name)
+	}
+}
+
