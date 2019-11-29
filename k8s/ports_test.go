@@ -29,11 +29,11 @@ func TestPortsFetch(t *testing.T) {
 
 	servicePortIndex := 0
 	assert.Equal(t, 31000, (*actualPortDef)[servicePortIndex].Port)
-	assert.Equal(t, true, (*actualPortDef)[servicePortIndex].Labels[0]["service"])
+	assert.Equal(t, "true", (*actualPortDef)[servicePortIndex].Labels[0]["service"])
 
 	probePortIndex := 1
 	assert.Equal(t, 31001, (*actualPortDef)[probePortIndex].Port)
-	assert.Equal(t, true, (*actualPortDef)[probePortIndex].Labels[0]["probe"])
+	assert.Equal(t, "true", (*actualPortDef)[probePortIndex].Labels[0]["probe"])
 
 	securedPortIndex := 2
 	assert.Equal(t, 31002, (*actualPortDef)[securedPortIndex].Port)
@@ -55,7 +55,7 @@ func TestPortIsService(t *testing.T) {
 	service := portDefinition{
 		Port: 31000,
 		Labels: []label{
-			{serviceLabel: true},
+			{serviceLabel: "true"},
 		},
 	}
 	assert.True(t, service.isService())
@@ -69,7 +69,7 @@ func TestPortIsProbe(t *testing.T) {
 	service := portDefinition{
 		Port: 31000,
 		Labels: []label{
-			{probeLabel: true},
+			{probeLabel: "true"},
 		},
 	}
 

@@ -21,17 +21,14 @@ type portDefinition struct {
 	Labels []label `json:"labels"`
 }
 
-type label map[string]interface{}
+type label map[string]string
 
 func (pd portDefinition) getTags() []string {
 	var tags []string
 	for _, label := range pd.Labels {
 		for key, value := range label {
-			labelValue, ok := value.(string)
-			if ok {
-				if labelValue == "tag" {
-					tags = append(tags, key)
-				}
+			if value == "tag" {
+				tags = append(tags, key)
 			}
 		}
 	}
@@ -59,7 +56,7 @@ func (pd portDefinition) isProbe() bool {
 func (pd portDefinition) labelForConsul() string {
 	for i := range pd.Labels {
 		if pd.hasConsulLabel(i) {
-			return pd.Labels[i][consulLabel].(string)
+			return pd.Labels[i][consulLabel]
 		}
 	}
 	return ""
@@ -76,8 +73,8 @@ func (pd portDefinition) hasConsulLabel(labelIndex int) bool {
 
 func (pd portDefinition) hasServiceLabel(labelIndex int) bool {
 	label := pd.Labels[labelIndex]
-	if val, ok := label[serviceLabel]; ok {
-		return val.(bool)
+	if val, ok := label[serviceLabel]; ok && val == "true" {
+		return true
 	}
 
 	return false
@@ -85,8 +82,8 @@ func (pd portDefinition) hasServiceLabel(labelIndex int) bool {
 
 func (pd portDefinition) hasProbeLabel(labelIndex int) bool {
 	label := pd.Labels[labelIndex]
-	if val, ok := label[probeLabel]; ok {
-		return val.(bool)
+	if val, ok := label[probeLabel]; ok && val == "true" {
+		return true
 	}
 
 	return false
