@@ -1,12 +1,12 @@
 [
   { "port": 31000,
     "labels": [
-      {"service": true}
+      {"service": "true"}
     ]
   },
   { "port": 31001,
     "labels": [
-      {"probe":  true}
+      {"probe":  "true"}
     ]
   }
 ]
