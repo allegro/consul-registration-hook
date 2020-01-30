@@ -16,6 +16,7 @@ import (
 
 const (
 	consulLabelKey                  = "consul"
+	consulRegisterLabelKey          = "consulContainer"
 	consulTagPrefix                 = "CONSUL_TAG_"
 	podNamespaceEnvVar              = "KUBERNETES_POD_NAMESPACE"
 	podNameEnvVar                   = "KUBERNETES_POD_NAME"
@@ -172,8 +173,11 @@ func generateServices(serviceName string, pod *corev1.Pod, globalTags []string) 
 }
 
 func generateFromContainerPorts(serviceName string, pod *corev1.Pod, globalTags []string) ([]consul.ServiceInstance, error) {
-	// this method exists only to provide backward compatibility
-	container := pod.Spec.Containers[0]
+	container, err := getContainerToRegister(pod)
+	if err != nil {
+		return nil, err
+	}
+
 	host := pod.GetStatus().GetPodIP()
 	port := int(*container.Ports[0].ContainerPort)
 
@@ -187,6 +191,26 @@ func generateFromContainerPorts(serviceName string, pod *corev1.Pod, globalTags 
 	service.Tags = append(service.Tags, globalTags...)
 
 	return []consul.ServiceInstance{service}, nil
+}
+
+func getContainerToRegister(pod *corev1.Pod) (*corev1.Container, error) {
+	var containerToRegister *corev1.Container
+	containerToRegisterName, containerDefined := pod.Metadata.Labels[consulRegisterLabelKey]
+
+	for _, container := range pod.Spec.Containers {
+		if *container.Name == containerToRegisterName && len(container.Ports) > 0 {
+			containerToRegister = container
+			break
+		} else if !containerDefined && len(container.Ports) > 0 {
+			containerToRegister = container
+			break
+		}
+	}
+
+	if containerToRegister == nil {
+		return nil, fmt.Errorf("unable to register, cannot find containerPort")
+	}
+	return containerToRegister, nil
 }
 
 func generateFromPortDefinitions(serviceName string, portDefinitions *portDefinitions, pod *corev1.Pod, globalTags []string) ([]consul.ServiceInstance, error) {
