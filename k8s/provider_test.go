@@ -26,7 +26,7 @@ func TestIfFailsIfKubernetesAPIFails(t *testing.T) {
 		Return(nil, errors.New("error"))
 
 	provider := ServiceProvider{
-		Client: client,
+		Client:  client,
 		Timeout: 2 * time.Second,
 	}
 
@@ -44,7 +44,7 @@ func TestIfReturnsEmptySliceToPodIsNotLabelledCorrectly(t *testing.T) {
 		Return(pod, nil).Once()
 
 	provider := ServiceProvider{
-		Client: client,
+		Client:  client,
 		Timeout: 1 * time.Second,
 	}
 
@@ -67,7 +67,7 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 
 	client := getMockedClient(pod)
 	provider := ServiceProvider{
-		Client: client,
+		Client:  client,
 		Timeout: 1 * time.Second,
 	}
 
@@ -85,6 +85,101 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 	assert.Equal(t, 8080, service.Port)
 }
 
+func TestIfReturnsServiceToRegisterWhenLapeledContainerIsSpecified(t *testing.T) {
+	containerName := "name"
+	podIP := "192.0.2.2"
+
+	appContainerIndex := 0
+	envoyContainerIndex := 1
+
+	appContainerPort := int32(8080)
+	sidecarContainerPort := int32(8181)
+	pod := testPod()
+	pod.Metadata.Labels[consulLabelKey] = "serviceName"
+	pod.Metadata.Labels[consulRegisterLabelKey] = "sidecar"
+	pod.Status.PodIP = &podIP
+	pod.Spec.Containers[appContainerIndex].Name = &containerName
+	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &appContainerPort})
+	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &sidecarContainerPort})
+
+	client := getMockedClient(pod)
+	provider := ServiceProvider{
+		Client:  client,
+		Timeout: 1 * time.Second,
+	}
+
+	services, err := provider.Get(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	client.client.AssertExpectations(t)
+
+	service := services[0]
+
+	assert.Len(t, service.Tags, 0)
+	assert.Equal(t, "192.0.2.2_8181", service.ID)
+	assert.Equal(t, "serviceName", service.Name)
+	assert.Equal(t, 8181, service.Port)
+}
+
+func TestIfReturnsServiceToRegisterAppPortWhenNoLabelSpecified(t *testing.T) {
+	containerName := "name"
+	podIP := "192.0.2.2"
+
+	appContainerIndex := 0
+	envoyContainerIndex := 1
+
+	appContainerPort := int32(8080)
+	sidecarContainerPort := int32(8181)
+	pod := testPod()
+	pod.Metadata.Labels[consulLabelKey] = "serviceName"
+	pod.Status.PodIP = &podIP
+	pod.Spec.Containers[appContainerIndex].Name = &containerName
+	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &appContainerPort})
+	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &sidecarContainerPort})
+
+	client := getMockedClient(pod)
+	provider := ServiceProvider{
+		Client:  client,
+		Timeout: 1 * time.Second,
+	}
+
+	services, err := provider.Get(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	client.client.AssertExpectations(t)
+
+	service := services[0]
+
+	assert.Len(t, service.Tags, 0)
+	assert.Equal(t, "192.0.2.2_8080", service.ID)
+	assert.Equal(t, "serviceName", service.Name)
+	assert.Equal(t, 8080, service.Port)
+}
+
+func TestIfReturnsErrorWhenNoPortsDefined(t *testing.T) {
+	containerName := "name"
+	podIP := "192.0.2.2"
+
+	appContainerIndex := 0
+
+	pod := testPod()
+	pod.Metadata.Labels[consulLabelKey] = "serviceName"
+	pod.Metadata.Labels[consulRegisterLabelKey] = "sidecar"
+	pod.Status.PodIP = &podIP
+	pod.Spec.Containers[appContainerIndex].Name = &containerName
+
+	client := getMockedClient(pod)
+	provider := ServiceProvider{
+		Client:  client,
+		Timeout: 1 * time.Second,
+	}
+
+	_, err := provider.Get(context.Background())
+	require.EqualError(t, err, "unable to register, cannot find containerPort")
+}
+
 func TestIfFailsWhenUnableToDetermineIP(t *testing.T) {
 	client := &MockClient{}
 
@@ -98,7 +193,7 @@ func TestIfFailsWhenUnableToDetermineIP(t *testing.T) {
 		Return(nil, nil).Once()
 
 	provider := ServiceProvider{
-		Client: client,
+		Client:  client,
 		Timeout: 1 * time.Second,
 	}
 
@@ -125,7 +220,7 @@ func TestIfRetriesWhenInitialIPEmpty(t *testing.T) {
 		Return(nil, nil).Once()
 
 	provider := ServiceProvider{
-		Client: client,
+		Client:  client,
 		Timeout: 10 * time.Second,
 	}
 
@@ -203,7 +298,7 @@ func TestLabelsAndAnnotationsToConsulTagsConversion(t *testing.T) {
 	for _, testCase := range labelsAndAnnotationsTestCases {
 		client := getMockedClient(testCase.pod)
 		provider := ServiceProvider{
-			Client: client,
+			Client:  client,
 			Timeout: 1 * time.Second,
 		}
 
@@ -268,6 +363,10 @@ func testPod() *corev1.Pod {
 		Spec: &corev1.PodSpec{
 			Containers: []*corev1.Container{
 				{
+					Ports: []*corev1.ContainerPort{},
+				},
+				{
+					Name:  k8s.String("sidecar"),
 					Ports: []*corev1.ContainerPort{},
 				},
 			},
@@ -370,7 +469,7 @@ func TestGenerateServicesWithPropperHealthCheck(t *testing.T) {
 		{
 			Check: &consul.Check{
 				Address: "http://192.0.2.2:0/status/ping",
-				Type: "HTTP_GET",
+				Type:    "HTTP_GET",
 			},
 		},
 	}
@@ -423,7 +522,6 @@ func TestShouldCheckMultipleServicesWithGlobalTagsCombinedAndWithPortSpecificTag
 	services, err := generateServices("serviceName", pod, tags)
 	require.NoError(t, err)
 
-
 	assert.Len(t, services, 3)
 	for i, service := range services {
 		assert.Equal(t, expectedServices[i].Tags, service.Tags)
@@ -455,4 +553,3 @@ func TestShouldCheckMultipleServiceNames(t *testing.T) {
 		assert.Equal(t, expectedServices[i].Name, service.Name)
 	}
 }
-
