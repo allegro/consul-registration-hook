@@ -58,8 +58,8 @@ func (a *Agent) Register(services []ServiceInstance) error {
 		var check *api.AgentServiceCheck
 		if service.Check != nil {
 			check = &api.AgentServiceCheck{
-				Interval: service.Check.Interval.String(),
-				Timeout:  service.Check.Timeout.String(),
+				Interval:                       service.Check.Interval.String(),
+				Timeout:                        service.Check.Timeout.String(),
 				DeregisterCriticalServiceAfter: defaultDeregisterCriticalServiceAfter,
 			}
 
