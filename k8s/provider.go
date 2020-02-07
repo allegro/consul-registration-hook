@@ -153,9 +153,6 @@ func (p *ServiceProvider) getPodWithRetry(ctx context.Context, client Client, po
 	case <-time.After(p.Timeout):
 		finished = true
 		close(ch)
-		if err != nil {
-			return nil, fmt.Errorf("could not get valid Pod data after %s seconds: %s", p.Timeout, err)
-		}
 		return nil, fmt.Errorf("could not get valid Pod data after %s", p.Timeout)
 	}
 }

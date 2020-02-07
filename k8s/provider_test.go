@@ -452,7 +452,7 @@ func marshalPB(obj interface{}) ([]byte, error) {
 	return d, nil
 }
 
-func TestGenerateServicesWithPropperHealthCheck(t *testing.T) {
+func TestGenerateServicesWithProperHealthCheck(t *testing.T) {
 	setEnv(t, "testdata/port_definitions_probe_and_service_only.json")
 	defer unsetEnv(t)
 

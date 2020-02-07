@@ -97,9 +97,7 @@ func (p *ServiceProvider) getPortLabels(labels []label, tagPlaceholders map[stri
 	for _, label := range labels {
 		if label.Value == consulTagValue {
 			for placeholder, replacement := range tagPlaceholders {
-				if strings.Contains(label.Key, placeholder) {
-					label.Key = strings.Replace(label.Key, placeholder, replacement, -1)
-				}
+				label.Key = strings.Replace(label.Key, placeholder, replacement, -1)
 			}
 			portLabels = append(portLabels, label.Key)
 		}

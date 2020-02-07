@@ -1,0 +1,24 @@
+'[
+  { "port": 31000,
+    "labels": [
+      {"service": "true"}
+    ]
+  },
+  { "port": 31001,
+    "labels": [
+      {"probe":  "true"}
+    ]
+  },
+  { "port":  31002,
+    "labels":  [
+      {"consul": "generic-app-secured"},
+      {"secureConnection:true": "tag"}
+    ]},
+  { "port":  31003,
+    "labels":  [
+      {"consul": "generic-app"},
+      {"service-port:31000": "tag"},
+      {"frontend:generic-app": "tag"},
+      {"envoy":  "tag"}
+    ]}
+]'
