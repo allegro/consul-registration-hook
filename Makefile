@@ -25,11 +25,11 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 lint: lint-deps
-	gometalinter.v2 --config=gometalinter.json ./...
+	golangci-lint run --config=golangcilinter.yaml ./...
 
 lint-deps:
-	@which gometalinter.v2 > /dev/null || \
-	(go get -u -v gopkg.in/alecthomas/gometalinter.v2 && gometalinter.v2 --install)
+	@which golangci-lint > /dev/null || \
+		(go get -u github.com/golangci/golangci-lint/cmd/golangci-lint)
 
 test:
 	go test -v -coverprofile=coverage.txt -covermode=atomic ./...

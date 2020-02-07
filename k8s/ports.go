@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 const (
@@ -98,7 +99,7 @@ func getPortDefinitions() (*portDefinitions, error) {
 
 	portDefinitions := &portDefinitions{}
 
-	err := json.Unmarshal([]byte(portConfig), &portDefinitions)
+	err := json.Unmarshal([]byte(strings.Trim(portConfig, "'")), &portDefinitions)
 	if err != nil {
 		return nil, fmt.Errorf("unable to unmarshal env data: %s", err)
 	}
