@@ -18,75 +18,55 @@ const (
 type portDefinitions []portDefinition
 
 type portDefinition struct {
-	Port   int     `json:"port"`
-	Labels []label `json:"labels"`
+	Port   int   `json:"port"`
+	Labels label `json:"labels"`
 }
 
 type label map[string]string
 
 func (pd portDefinition) getTags() []string {
 	var tags []string
-	for _, label := range pd.Labels {
-		for key, value := range label {
-			if value == "tag" {
-				tags = append(tags, key)
-			}
+	for key, value := range pd.Labels {
+		if value == "tag" {
+			tags = append(tags, key)
 		}
 	}
 	return tags
 }
 
 func (pd portDefinition) isService() bool {
-	for i := range pd.Labels {
-		if pd.hasServiceLabel(i) {
-			return true
-		}
-	}
-	return false
+	return pd.hasServiceLabel()
 }
 
 func (pd portDefinition) isProbe() bool {
-	for i := range pd.Labels {
-		if pd.hasProbeLabel(i) {
-			return true
-		}
-	}
-	return false
+	return pd.hasProbeLabel()
 }
 
 func (pd portDefinition) labelForConsul() string {
-	for i := range pd.Labels {
-		if pd.hasConsulLabel(i) {
-			return pd.Labels[i][consulLabel]
-		}
+	if pd.hasConsulLabel() {
+		return pd.Labels[consulLabel]
 	}
 	return ""
 }
 
-func (pd portDefinition) hasConsulLabel(labelIndex int) bool {
-	label := pd.Labels[labelIndex]
-	if _, ok := label[consulLabel]; ok {
+func (pd portDefinition) hasConsulLabel() bool {
+	if _, ok := pd.Labels[consulLabel]; ok {
 		return true
 	}
-
 	return false
 }
 
-func (pd portDefinition) hasServiceLabel(labelIndex int) bool {
-	label := pd.Labels[labelIndex]
-	if val, ok := label[serviceLabel]; ok && val == "true" {
+func (pd portDefinition) hasServiceLabel() bool {
+	if val, ok := pd.Labels[serviceLabel]; ok && val == "true" {
 		return true
 	}
-
 	return false
 }
 
-func (pd portDefinition) hasProbeLabel(labelIndex int) bool {
-	label := pd.Labels[labelIndex]
-	if val, ok := label[probeLabel]; ok && val == "true" {
+func (pd portDefinition) hasProbeLabel() bool {
+	if val, ok := pd.Labels[probeLabel]; ok && val == "true" {
 		return true
 	}
-
 	return false
 }
 

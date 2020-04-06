@@ -490,7 +490,7 @@ func TestCheckOneServiceFromWithProperTags(t *testing.T) {
 	expectedServices := []consul.ServiceInstance{
 		{
 			Tags: []string{
-				"a", "b", "c",
+				"a", "b", "c", "envoy",
 			},
 		},
 	}
@@ -553,3 +553,4 @@ func TestShouldCheckMultipleServiceNames(t *testing.T) {
 		assert.Equal(t, expectedServices[i].Name, service.Name)
 	}
 }
+
