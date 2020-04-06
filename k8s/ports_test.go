@@ -21,23 +21,22 @@ func TestPortsFetch(t *testing.T) {
 
 		servicePortIndex := 0
 		assert.Equal(t, 31000, (*actualPortDef)[servicePortIndex].Port)
-		assert.Equal(t, "true", (*actualPortDef)[servicePortIndex].Labels[0]["service"])
+		assert.Equal(t, "tag", (*actualPortDef)[servicePortIndex].Labels["envoy"])
 
 		probePortIndex := 1
 		assert.Equal(t, 31001, (*actualPortDef)[probePortIndex].Port)
-		assert.Equal(t, "true", (*actualPortDef)[probePortIndex].Labels[0]["probe"])
+		assert.Equal(t, "true", (*actualPortDef)[probePortIndex].Labels["probe"])
 
 		securedPortIndex := 2
 		assert.Equal(t, 31002, (*actualPortDef)[securedPortIndex].Port)
-		assert.Equal(t, "generic-app-secured", (*actualPortDef)[securedPortIndex].Labels[0]["consul"])
-		assert.Equal(t, "tag", (*actualPortDef)[securedPortIndex].Labels[1]["secureConnection:true"])
+		assert.Equal(t, "generic-app-secured", (*actualPortDef)[securedPortIndex].Labels["consul"])
+		assert.Equal(t, "tag", (*actualPortDef)[securedPortIndex].Labels["secureConnection:true"])
 
 		genericPortIndex := 3
 		assert.Equal(t, 31003, (*actualPortDef)[genericPortIndex].Port)
-		assert.Equal(t, "generic-app", (*actualPortDef)[genericPortIndex].Labels[0]["consul"])
-		assert.Equal(t, "tag", (*actualPortDef)[genericPortIndex].Labels[1]["service-port:31000"])
-		assert.Equal(t, "tag", (*actualPortDef)[genericPortIndex].Labels[2]["frontend:generic-app"])
-		assert.Equal(t, "tag", (*actualPortDef)[genericPortIndex].Labels[3]["envoy"])
+		assert.Equal(t, "generic-app", (*actualPortDef)[genericPortIndex].Labels["consul"])
+		assert.Equal(t, "tag", (*actualPortDef)[genericPortIndex].Labels["service-port:31000"])
+		assert.Equal(t, "tag", (*actualPortDef)[genericPortIndex].Labels["frontend:generic-app"])
 	}
 	defer unsetEnv(t)
 }
@@ -45,9 +44,8 @@ func TestPortsFetch(t *testing.T) {
 func TestPortIsService(t *testing.T) {
 	service := portDefinition{
 		Port: 31000,
-		Labels: []label{
-			{serviceLabel: "true"},
-		},
+		Labels: label{serviceLabel: "true"},
+
 	}
 	assert.True(t, service.isService())
 	assert.False(t, service.isProbe())
@@ -56,9 +54,7 @@ func TestPortIsService(t *testing.T) {
 func TestPortIsProbe(t *testing.T) {
 	service := portDefinition{
 		Port: 31000,
-		Labels: []label{
-			{probeLabel: "true"},
-		},
+		Labels: label{probeLabel: "true"},
 	}
 
 	assert.True(t, service.isProbe())
@@ -67,10 +63,8 @@ func TestPortIsProbe(t *testing.T) {
 
 func TestPortConsulName(t *testing.T) {
 	service := portDefinition{
-		Port: 31000,
-		Labels: []label{
-			{consulLabel: "generic-service"},
-		},
+		Port:   31000,
+		Labels: label{consulLabel: "generic-service"},
 	}
 
 	assert.Equal(t, "generic-service", service.labelForConsul())
