@@ -21,7 +21,7 @@ package: build
 	tar -czvf $(BUILD_DIR)/$(NAME)-$(VERSION)-$(OS)-$(ARCH).tar.gz -C $(BUILD_DIR) $(NAME)
 
 clean:
-	go clean -v .
+	go clean -v ./...
 	rm -rf $(BUILD_DIR)
 
 lint: lint-deps
