@@ -216,13 +216,13 @@ func generateFromPortDefinitions(serviceName string, portDefinitions *portDefini
 	// TODO(tz) - provide container id with readiness probe
 	container := pod.Spec.Containers[0]
 
-	for _, portDefinition := range *(portDefinitions) {
+	for idx, portDefinition := range *(portDefinitions) {
 		labeledServiceName := portDefinition.labelForConsul()
 		if labeledServiceName != "" {
 			serviceName = labeledServiceName
 		}
 
-		if portDefinition.isService() || labeledServiceName != "" {
+		if portDefinition.isService() || labeledServiceName != "" || (idx == 0 && !portDefinitions.HasServicePortDefined()) {
 			service := consul.ServiceInstance{
 				ID:    fmt.Sprintf("%s_%d", host, portDefinition.Port),
 				Name:  serviceName,

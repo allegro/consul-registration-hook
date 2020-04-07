@@ -1,0 +1,11 @@
+[
+  { "port": 31000,
+    "labels":
+      {"envoy": "tag"}
+  },
+  { "port":  31002,
+    "labels":
+      {"consul": "generic-app-secured",
+      "secureConnection:true": "tag"}
+    }
+]
