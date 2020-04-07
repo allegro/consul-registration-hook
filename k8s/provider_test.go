@@ -554,3 +554,26 @@ func TestShouldCheckMultipleServiceNames(t *testing.T) {
 	}
 }
 
+func TestShouldGenerateSecureServiceAndFirstServiceWithoutTag(t *testing.T) {
+	setEnv(t, "testdata/port_definitions_first_service_without_tag.json")
+	defer unsetEnv(t)
+	pod := testPod()
+	tags := []string{"a", "b", "c"}
+	expectedServices := []consul.ServiceInstance{
+		{
+			Name: "serviceName",
+		},
+		{
+			Name: "generic-app-secured",
+		},
+	}
+
+	services, err := generateServices("serviceName", pod, tags)
+	require.NoError(t, err)
+
+	assert.Len(t, services, 2)
+	for i, service := range services {
+		assert.Equal(t, expectedServices[i].Name, service.Name)
+	}
+}
+
