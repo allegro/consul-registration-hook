@@ -17,6 +17,15 @@ const (
 
 type portDefinitions []portDefinition
 
+func (pds portDefinitions) HasServicePortDefined() bool {
+	for _, pd := range pds {
+		if pd.isService() {
+			return true
+		}
+	}
+	return false
+}
+
 type portDefinition struct {
 	Port   int   `json:"port"`
 	Labels label `json:"labels"`

@@ -222,7 +222,7 @@ func generateFromPortDefinitions(serviceName string, portDefinitions *portDefini
 			serviceName = labeledServiceName
 		}
 
-		if portDefinition.isService() || labeledServiceName != "" || idx == 0 {
+		if portDefinition.isService() || labeledServiceName != "" || (idx == 0 && !portDefinitions.HasServicePortDefined()) {
 			service := consul.ServiceInstance{
 				ID:    fmt.Sprintf("%s_%d", host, portDefinition.Port),
 				Name:  serviceName,
