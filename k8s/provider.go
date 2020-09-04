@@ -176,10 +176,11 @@ func generateFromContainerPorts(serviceName string, pod *corev1.Pod, globalTags 
 	}
 
 	host := pod.GetStatus().GetPodIP()
+	podName := pod.GetMetadata().GetName()
 	port := int(*container.Ports[0].ContainerPort)
 
 	service := consul.ServiceInstance{
-		ID:    fmt.Sprintf("%s_%d", host, port),
+		ID:    fmt.Sprintf("%s_%d", podName, port),
 		Name:  serviceName,
 		Host:  host,
 		Port:  port,

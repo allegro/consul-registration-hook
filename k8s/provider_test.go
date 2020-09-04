@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"testing"
 
 	corev1 "github.com/ericchiang/k8s/apis/core/v1"
@@ -56,11 +57,13 @@ func TestIfReturnsEmptySliceToPodIsNotLabelledCorrectly(t *testing.T) {
 
 func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 	containerName := "name"
+	podName := "serviceName-UUID"
 	podIP := "192.0.2.2"
 
 	port := int32(8080)
 	pod := testPod()
 	pod.Metadata.Labels[consulLabelKey] = "serviceName"
+	pod.Metadata.Name = &podName
 	pod.Status.PodIP = &podIP
 	pod.Spec.Containers[0].Name = &containerName
 	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, &corev1.ContainerPort{ContainerPort: &port})
@@ -80,7 +83,7 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 	service := services[0]
 
 	assert.Len(t, service.Tags, 0)
-	assert.Equal(t, "192.0.2.2_8080", service.ID)
+	assert.Equal(t, "serviceName-UUID_8080", service.ID)
 	assert.Equal(t, "serviceName", service.Name)
 	assert.Equal(t, 8080, service.Port)
 }
@@ -88,6 +91,7 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 func TestIfReturnsServiceToRegisterWhenLapeledContainerIsSpecified(t *testing.T) {
 	containerName := "name"
 	podIP := "192.0.2.2"
+	podName := "serviceName-UUID"
 
 	appContainerIndex := 0
 	envoyContainerIndex := 1
@@ -98,6 +102,7 @@ func TestIfReturnsServiceToRegisterWhenLapeledContainerIsSpecified(t *testing.T)
 	pod.Metadata.Labels[consulLabelKey] = "serviceName"
 	pod.Metadata.Labels[consulRegisterLabelKey] = "sidecar"
 	pod.Status.PodIP = &podIP
+	pod.Metadata.Name = &podName
 	pod.Spec.Containers[appContainerIndex].Name = &containerName
 	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &appContainerPort})
 	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &sidecarContainerPort})
@@ -117,7 +122,7 @@ func TestIfReturnsServiceToRegisterWhenLapeledContainerIsSpecified(t *testing.T)
 	service := services[0]
 
 	assert.Len(t, service.Tags, 0)
-	assert.Equal(t, "192.0.2.2_8181", service.ID)
+	assert.Equal(t, "serviceName-UUID_8181", service.ID)
 	assert.Equal(t, "serviceName", service.Name)
 	assert.Equal(t, 8181, service.Port)
 }
@@ -125,6 +130,7 @@ func TestIfReturnsServiceToRegisterWhenLapeledContainerIsSpecified(t *testing.T)
 func TestIfReturnsServiceToRegisterAppPortWhenNoLabelSpecified(t *testing.T) {
 	containerName := "name"
 	podIP := "192.0.2.2"
+	podName := "serviceName-UUID"
 
 	appContainerIndex := 0
 	envoyContainerIndex := 1
@@ -134,6 +140,7 @@ func TestIfReturnsServiceToRegisterAppPortWhenNoLabelSpecified(t *testing.T) {
 	pod := testPod()
 	pod.Metadata.Labels[consulLabelKey] = "serviceName"
 	pod.Status.PodIP = &podIP
+	pod.Metadata.Name = &podName
 	pod.Spec.Containers[appContainerIndex].Name = &containerName
 	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &appContainerPort})
 	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &sidecarContainerPort})
@@ -153,7 +160,7 @@ func TestIfReturnsServiceToRegisterAppPortWhenNoLabelSpecified(t *testing.T) {
 	service := services[0]
 
 	assert.Len(t, service.Tags, 0)
-	assert.Equal(t, "192.0.2.2_8080", service.ID)
+	assert.Equal(t, "serviceName-UUID_8080", service.ID)
 	assert.Equal(t, "serviceName", service.Name)
 	assert.Equal(t, 8080, service.Port)
 }
@@ -233,7 +240,7 @@ func TestIfRetriesWhenInitialIPEmpty(t *testing.T) {
 	service := services[0]
 
 	assert.Len(t, service.Tags, 0)
-	assert.Equal(t, "192.0.2.2_8080", service.ID)
+	assert.Equal(t, "serviceName-UUID_8080", service.ID)
 	assert.Equal(t, "serviceName", service.Name)
 	assert.Equal(t, 8080, service.Port)
 }
@@ -285,8 +292,10 @@ var labelsAndAnnotationsTestCases = []struct {
 func composeTestCasePod(annotations map[string]string) *corev1.Pod {
 	port := int32(8080)
 	containerName := "name"
+	podName := "serviceName-UUID"
 	pod := testPod()
 	pod.Metadata.Annotations = annotations
+	pod.Metadata.Name = &podName
 	pod.Metadata.Labels[consulLabelKey] = "serviceName"
 	pod.Spec.Containers[0].Name = &containerName
 	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, &corev1.ContainerPort{ContainerPort: &port})
@@ -515,7 +524,7 @@ func TestShouldCheckMultipleServicesWithGlobalTagsCombinedAndWithPortSpecificTag
 			Tags: []string{"a", "b", "c", "secureConnection:true"},
 		},
 		{
-			Tags: []string{"a", "b", "c", "service-port:31000", "frontend:generic-app", "envoy"},
+			Tags: []string{"a", "b", "c", "envoy", "frontend:generic-app", "service-port:31000"},
 		},
 	}
 
@@ -524,7 +533,9 @@ func TestShouldCheckMultipleServicesWithGlobalTagsCombinedAndWithPortSpecificTag
 
 	assert.Len(t, services, 3)
 	for i, service := range services {
-		assert.Equal(t, expectedServices[i].Tags, service.Tags)
+		sortedTags := service.Tags
+		sort.Strings(sortedTags)
+		assert.Equal(t, expectedServices[i].Tags, sortedTags)
 	}
 }
 
