@@ -6,6 +6,8 @@ OS        := $(shell go env GOOS)
 BUILD_DIR := build
 LDFLAGS   := -X main.version=$(VERSION)
 
+CURRENT_DIR = $(shell pwd)
+BIN = $(CURRENT_DIR)/bin
 THIS_FILE := $(lastword $(MAKEFILE_LIST))
 .PHONY: all build build-linux package clean lint lint-deps test integration-test
 
@@ -25,11 +27,12 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 lint: lint-deps
-	golangci-lint run --config=golangcilinter.yaml ./...
+	$(BIN)/golangci-lint --version
+	$(BIN)/golangci-lint run --config=golangcilinter.yaml ./...
 
 lint-deps:
 	@which golangci-lint > /dev/null || \
-		(go get -u github.com/golangci/golangci-lint/cmd/golangci-lint)
+		(curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(BIN) v1.30.0)
 
 test:
 	go test -v -coverprofile=coverage.txt -covermode=atomic ./...
