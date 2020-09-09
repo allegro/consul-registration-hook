@@ -79,7 +79,7 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 
 	service := services[0]
 
-	assert.Len(t, service.Tags, 0)
+	assert.Equal(t, []string{"instance:podName_8080"}, service.Tags)
 	assert.Equal(t, "192.0.2.2_8080", service.ID)
 	assert.Equal(t, "serviceName", service.Name)
 	assert.Equal(t, 8080, service.Port)
@@ -116,7 +116,7 @@ func TestIfReturnsServiceToRegisterWhenLapeledContainerIsSpecified(t *testing.T)
 
 	service := services[0]
 
-	assert.Len(t, service.Tags, 0)
+	assert.Equal(t, []string{"instance:podName_8181"}, service.Tags)
 	assert.Equal(t, "192.0.2.2_8181", service.ID)
 	assert.Equal(t, "serviceName", service.Name)
 	assert.Equal(t, 8181, service.Port)
@@ -152,7 +152,7 @@ func TestIfReturnsServiceToRegisterAppPortWhenNoLabelSpecified(t *testing.T) {
 
 	service := services[0]
 
-	assert.Len(t, service.Tags, 0)
+	assert.Equal(t, []string{"instance:podName_8080"}, service.Tags)
 	assert.Equal(t, "192.0.2.2_8080", service.ID)
 	assert.Equal(t, "serviceName", service.Name)
 	assert.Equal(t, 8080, service.Port)
@@ -232,7 +232,7 @@ func TestIfRetriesWhenInitialIPEmpty(t *testing.T) {
 
 	service := services[0]
 
-	assert.Len(t, service.Tags, 0)
+	assert.Equal(t, []string{"instance:podName_8080"}, service.Tags)
 	assert.Equal(t, "192.0.2.2_8080", service.ID)
 	assert.Equal(t, "serviceName", service.Name)
 	assert.Equal(t, 8080, service.Port)
@@ -246,21 +246,21 @@ var labelsAndAnnotationsTestCases = []struct {
 		pod: composeTestCasePod(
 			map[string]string{
 				"CONSUL_TAG_0": "KEY0: VALUE0"}),
-		expectedConsulTags: []string{"KEY0: VALUE0"},
+		expectedConsulTags: []string{"KEY0: VALUE0", "instance:podName_8080"},
 	},
 	{
 		pod: composeTestCasePod(
 			map[string]string{
 				"CONSUL_TAG_0": "KEY0: VALUE0",
 				"CONSUL_TAG_1": ""}),
-		expectedConsulTags: []string{"KEY0: VALUE0"},
+		expectedConsulTags: []string{"KEY0: VALUE0", "instance:podName_8080"},
 	},
 	{
 		pod: composeTestCasePod(
 			map[string]string{
 				"CONSUL_TAG_0": "KEY0: VALUE0",
 				"CONSUL_TAG_1": "KEY1: VALUE1"}),
-		expectedConsulTags: []string{"KEY0: VALUE0", "KEY1: VALUE1"},
+		expectedConsulTags: []string{"KEY0: VALUE0", "KEY1: VALUE1", "instance:podName_8080"},
 	},
 	{
 		pod: composeTestCasePod(
@@ -269,7 +269,7 @@ var labelsAndAnnotationsTestCases = []struct {
 				"CONSUL_TAG_1":   "KEY1: VALUE1",
 				"CONSUL_TAG_1_a": "KEY2: VALUE2",
 			}),
-		expectedConsulTags: []string{"KEY0: VALUE0", "KEY1: VALUE1", "KEY2: VALUE2"},
+		expectedConsulTags: []string{"KEY0: VALUE0", "KEY1: VALUE1", "KEY2: VALUE2", "instance:podName_8080"},
 	},
 	{
 		pod: composeTestCasePod(
@@ -278,7 +278,7 @@ var labelsAndAnnotationsTestCases = []struct {
 				"CONSUL_TAG_1":   "KEY0: VALUE0",
 				"CONSUL_TAG_1_a": "KEY2: VALUE2",
 			}),
-		expectedConsulTags: []string{"KEY0: VALUE0", "KEY0: VALUE0", "KEY2: VALUE2"},
+		expectedConsulTags: []string{"KEY0: VALUE0", "KEY0: VALUE0", "KEY2: VALUE2", "instance:podName_8080"},
 	},
 }
 
@@ -358,6 +358,7 @@ func TestIfConvertNodeFailureDomainTagsToConsulTags(t *testing.T) {
 
 func testPod() *corev1.Pod {
 	podIP := "192.0.2.2"
+	podName := "podName"
 
 	return &corev1.Pod{
 		Spec: &corev1.PodSpec{
@@ -377,6 +378,7 @@ func testPod() *corev1.Pod {
 		Metadata: &metav1.ObjectMeta{
 			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
+			Name: &podName,
 		},
 	}
 }

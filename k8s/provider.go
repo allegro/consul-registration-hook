@@ -22,6 +22,7 @@ const (
 	podNameEnvVar                   = "KUBERNETES_POD_NAME"
 	consulPodNameLabelTemplate      = "k8sPodName: %s"
 	consulPodNamespaceLabelTemplate = "k8sPodNamespace: %s"
+	instanceFormat                  = "instance:%s_%d"
 )
 
 // Client is an interface for client to Kubernetes API.
@@ -175,6 +176,7 @@ func generateFromContainerPorts(serviceName string, pod *corev1.Pod, globalTags 
 		return nil, err
 	}
 
+	podName := pod.GetMetadata().GetName()
 	host := pod.GetStatus().GetPodIP()
 	port := int(*container.Ports[0].ContainerPort)
 
@@ -184,6 +186,7 @@ func generateFromContainerPorts(serviceName string, pod *corev1.Pod, globalTags 
 		Host:  host,
 		Port:  port,
 		Check: ConvertToConsulCheck(container.LivenessProbe, host),
+		Tags:  []string{createInstanceTag(podName, port)},
 	}
 	service.Tags = append(service.Tags, globalTags...)
 
@@ -240,4 +243,8 @@ func generateFromPortDefinitions(serviceName string, portDefinitions *portDefini
 		}
 	}
 	return services, nil
+}
+
+func createInstanceTag(podName string, podPort int) string {
+	return fmt.Sprintf(instanceFormat, podName, podPort)
 }
