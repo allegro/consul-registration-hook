@@ -216,6 +216,7 @@ func getContainerToRegister(pod *corev1.Pod) (*corev1.Container, error) {
 func generateFromPortDefinitions(serviceName string, portDefinitions *portDefinitions, pod *corev1.Pod, globalTags []string) ([]consul.ServiceInstance, error) {
 	var services []consul.ServiceInstance
 	host := pod.GetStatus().GetPodIP()
+	podName := pod.GetMetadata().GetName()
 	// TODO(tz) - provide container id with readiness probe
 	container := pod.Spec.Containers[0]
 
@@ -235,6 +236,7 @@ func generateFromPortDefinitions(serviceName string, portDefinitions *portDefini
 				Tags:  globalTags,
 			}
 			service.Tags = append(service.Tags, portDefinition.getTags()...)
+			service.Tags = append(service.Tags, createInstanceTag(podName, portDefinition.Port))
 			services = append(services, service)
 		} else if portDefinition.isProbe() {
 			// probe is taken from liveness probe of first container, it is assumet to match this one

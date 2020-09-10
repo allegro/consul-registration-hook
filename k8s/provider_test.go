@@ -492,7 +492,7 @@ func TestCheckOneServiceFromWithProperTags(t *testing.T) {
 	expectedServices := []consul.ServiceInstance{
 		{
 			Tags: []string{
-				"a", "b", "c", "envoy",
+				"a", "b", "c", "envoy", "instance:podName_31000",
 			},
 		},
 	}
@@ -511,13 +511,13 @@ func TestShouldCheckMultipleServicesWithGlobalTagsCombinedAndWithPortSpecificTag
 	tags := []string{"a", "b", "c"}
 	expectedServices := []consul.ServiceInstance{
 		{
-			Tags: []string{"a", "b", "c"},
+			Tags: []string{"a", "b", "c", "instance:podName_31000"},
 		},
 		{
-			Tags: []string{"a", "b", "c", "secureConnection:true"},
+			Tags: []string{"a", "b", "c", "secureConnection:true", "instance:podName_31002"},
 		},
 		{
-			Tags: []string{"a", "b", "c", "service-port:31000", "frontend:generic-app", "envoy"},
+			Tags: []string{"a", "b", "c", "service-port:31000", "frontend:generic-app", "envoy", "instance:podName_31003"},
 		},
 	}
 
