@@ -79,8 +79,16 @@ var commands = []cli.Command{
 						return fmt.Errorf("error getting services to register: %s", err)
 					}
 					log.Printf("Found %d services to register", len(services))
+					deregisterServices := provider.GenerateSecured(context.Background(), services)
+					log.Printf("Found %d services to deregister", len(deregisterServices))
 					aclTokenFile := c.Parent().Parent().String(consulACLFileFlag)
 					agent := consul.NewAgent(aclTokenFile)
+					if len(deregisterServices) > 0 {
+						er := agent.Deregister(deregisterServices)
+						if er != nil {
+							return fmt.Errorf("error deregistering services : %s", err)
+						}
+					}
 					return agent.Register(services)
 				},
 				Flags: []cli.Flag{

@@ -4,20 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"sort"
+	"testing"
+
 	"github.com/allegro/consul-registration-hook/consul"
 	"github.com/ericchiang/k8s"
 	"github.com/ericchiang/k8s/runtime"
 	"github.com/golang/protobuf/proto"
-	"net/http"
-	"net/http/httptest"
-	"testing"
+
+	"time"
 
 	corev1 "github.com/ericchiang/k8s/apis/core/v1"
 	metav1 "github.com/ericchiang/k8s/apis/meta/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"time"
 )
 
 func TestIfFailsIfKubernetesAPIFails(t *testing.T) {
@@ -378,7 +381,7 @@ func testPod() *corev1.Pod {
 		Metadata: &metav1.ObjectMeta{
 			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
-			Name: &podName,
+			Name:        &podName,
 		},
 	}
 }
@@ -514,10 +517,10 @@ func TestShouldCheckMultipleServicesWithGlobalTagsCombinedAndWithPortSpecificTag
 			Tags: []string{"a", "b", "c", "instance:podName_31000"},
 		},
 		{
-			Tags: []string{"a", "b", "c", "secureConnection:true", "instance:podName_31002"},
+			Tags: []string{"a", "b", "c", "instance:podName_31002", "secureConnection:true"},
 		},
 		{
-			Tags: []string{"a", "b", "c", "service-port:31000", "frontend:generic-app", "envoy", "instance:podName_31003"},
+			Tags: []string{"a", "b", "c", "envoy", "frontend:generic-app", "instance:podName_31003", "service-port:31000"},
 		},
 	}
 
@@ -526,6 +529,7 @@ func TestShouldCheckMultipleServicesWithGlobalTagsCombinedAndWithPortSpecificTag
 
 	assert.Len(t, services, 3)
 	for i, service := range services {
+		sort.Strings(service.Tags)
 		assert.Equal(t, expectedServices[i].Tags, service.Tags)
 	}
 }
@@ -578,4 +582,3 @@ func TestShouldGenerateSecureServiceAndFirstServiceWithoutTag(t *testing.T) {
 		assert.Equal(t, expectedServices[i].Name, service.Name)
 	}
 }
-
