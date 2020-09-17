@@ -582,3 +582,57 @@ func TestShouldGenerateSecureServiceAndFirstServiceWithoutTag(t *testing.T) {
 		assert.Equal(t, expectedServices[i].Name, service.Name)
 	}
 }
+
+func TestShouldGenerateServiceIDsForDeregistration(t *testing.T) {
+	servicesForRegistrationSingle := []consul.ServiceInstance{
+		{
+			ID: "IP_PORT",
+			Check: &consul.Check{
+				Address: "http://192.0.2.2:0/status/ping",
+				Type:    "HTTP_GET",
+			},
+		},
+	}
+	servicesForDeregistrationSingle := []consul.ServiceInstance{
+		{
+			ID: "IP_PORT-secured",
+			Check: &consul.Check{
+				Address: "http://192.0.2.2:0/status/ping",
+				Type:    "HTTP_GET",
+			},
+		},
+	}
+
+	servicesForRegistrationDouble := []consul.ServiceInstance{
+		{
+			ID: "IP_PORT",
+			Check: &consul.Check{
+				Address: "http://192.0.2.2:0/status/ping",
+				Type:    "HTTP_GET",
+			},
+		},
+		{
+			ID: "IP_PORT-secured",
+			Check: &consul.Check{
+				Address: "http://192.0.2.2:0/status/ping",
+				Type:    "HTTP_GET",
+			},
+		},
+	}
+
+	pod := testPod()
+	client := getMockedClient(pod)
+	provider := ServiceProvider{
+		Client:  client,
+		Timeout: 1 * time.Second,
+	}
+
+	services := provider.GenerateSecured(context.Background(), servicesForRegistrationSingle)
+	assert.Len(t, services, 1)
+	for i, service := range services {
+		assert.Equal(t, servicesForDeregistrationSingle[i].ID, service.ID)
+	}
+
+	services = provider.GenerateSecured(context.Background(), servicesForRegistrationDouble)
+	assert.Len(t, services, 0)
+}
