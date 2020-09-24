@@ -9,7 +9,7 @@ LDFLAGS   := -X main.version=$(VERSION)
 CURRENT_DIR = $(shell pwd)
 BIN = $(CURRENT_DIR)/bin
 THIS_FILE := $(lastword $(MAKEFILE_LIST))
-.PHONY: all build build-linux package clean lint lint-deps test integration-test
+.PHONY: all build build-linux package package-linux clean lint lint-deps test integration-test
 
 all: lint test build
 
@@ -21,6 +21,9 @@ build-linux:
 
 package: build
 	tar -czvf $(BUILD_DIR)/$(NAME)-$(VERSION)-$(OS)-$(ARCH).tar.gz -C $(BUILD_DIR) $(NAME)
+
+package-linux: build-linux
+	tar -czvf $(BUILD_DIR)/$(NAME)-$(VERSION)-linux-$(ARCH).tar.gz -C $(BUILD_DIR) $(NAME)
 
 clean:
 	go clean -v ./...

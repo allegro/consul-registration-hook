@@ -23,6 +23,7 @@ const (
 	consulPodNameLabelTemplate      = "k8sPodName: %s"
 	consulPodNamespaceLabelTemplate = "k8sPodNamespace: %s"
 	instanceFormat                  = "instance:%s_%d"
+	securedIDPostfix                = "-secured"
 )
 
 // Client is an interface for client to Kubernetes API.
@@ -70,6 +71,35 @@ func (c *defaultClient) GetFailureDomainTags(ctx context.Context, pod *corev1.Po
 type ServiceProvider struct {
 	Client  Client
 	Timeout time.Duration
+}
+
+// GenerateSecured generates list of postfixed Consul services for deregistration
+func (p *ServiceProvider) GenerateSecured(ctx context.Context, services []consul.ServiceInstance) []consul.ServiceInstance {
+	var NonSecureIDs []string
+	var SecureIDs []string
+	for _, service := range services {
+		if !strings.Contains(service.ID, securedIDPostfix) {
+			NonSecureIDs = append(NonSecureIDs, service.ID)
+		} else {
+			SecureIDs = append(SecureIDs, service.ID)
+		}
+	}
+
+	var deregisterIDs []string
+	for _, service := range NonSecureIDs {
+		if !Find(SecureIDs, fmt.Sprintf("%s%s", service, securedIDPostfix)) {
+			deregisterIDs = append(deregisterIDs, fmt.Sprintf("%s%s", service, securedIDPostfix))
+		}
+	}
+
+	var deregisterServices []consul.ServiceInstance
+	for _, serviceID := range deregisterIDs {
+		srv := consul.ServiceInstance{
+			ID: serviceID,
+		}
+		deregisterServices = append(deregisterServices, srv)
+	}
+	return deregisterServices
 }
 
 // Get returns slice of services that are configured to be registered in Consul
@@ -227,8 +257,12 @@ func generateFromPortDefinitions(serviceName string, portDefinitions *portDefini
 		}
 
 		if portDefinition.isService() || labeledServiceName != "" || (idx == 0 && !portDefinitions.HasServicePortDefined()) {
+			id := fmt.Sprintf("%s_%d", host, portDefinition.Port)
+			if strings.Contains(serviceName, securedIDPostfix) {
+				id = fmt.Sprintf("%s_%d%s", host, portDefinition.Port, securedIDPostfix)
+			}
 			service := consul.ServiceInstance{
-				ID:    fmt.Sprintf("%s_%d", host, portDefinition.Port),
+				ID:    id,
 				Name:  serviceName,
 				Host:  host,
 				Port:  portDefinition.Port,
@@ -249,4 +283,15 @@ func generateFromPortDefinitions(serviceName string, portDefinitions *portDefini
 
 func createInstanceTag(podName string, podPort int) string {
 	return fmt.Sprintf(instanceFormat, podName, podPort)
+}
+
+// Find takes a slice and looks for an element in it. If found it will
+// return it's key, otherwise it will return -1 and a bool of false.
+func Find(slice []string, val string) bool {
+	for _, item := range slice {
+		if item == val {
+			return true
+		}
+	}
+	return false
 }
