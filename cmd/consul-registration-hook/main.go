@@ -86,7 +86,7 @@ var commands = []cli.Command{
 					if len(deregisterServices) > 0 {
 						er := agent.Deregister(deregisterServices)
 						if er != nil {
-							return fmt.Errorf("error deregistering services : %s", err)
+							log.Printf("Error deregistering services : %s", er)
 						}
 					}
 					return agent.Register(services)
