@@ -125,6 +125,90 @@ func TestIfReturnsServiceToRegisterWhenLapeledContainerIsSpecified(t *testing.T)
 	assert.Equal(t, 8181, service.Port)
 }
 
+func TestIfReturnsServiceToRegisterWhenPortDefinitionsIsDefined(t *testing.T) {
+	setEnv(t, "testdata/port_definitions_multiple_tags_vip_and_consul.json")
+	defer unsetEnv(t)
+	containerName := "name"
+	podIP := "192.0.2.2"
+
+	appContainerIndex := 0
+	envoyContainerIndex := 1
+
+	appContainerPort := int32(8080)
+	sidecarContainerPort := int32(8181)
+	pod := testPod()
+	pod.Metadata.Labels[consulLabelKey] = "serviceName"
+	pod.Metadata.Labels[consulRegisterLabelKey] = "sidecar"
+	pod.Status.PodIP = &podIP
+	pod.Spec.Containers[appContainerIndex].Name = &containerName
+	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &appContainerPort})
+	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &sidecarContainerPort})
+	pod.Metadata.Annotations = map[string]string{
+		"CONSUL_TAG_0": "tag-x:tag-x",
+		"CONSUL_TAG_1": "compute-type:k8s",
+		"CONSUL_TAG_2": "tag-y",
+		"CONSUL_TAG_3": "default-monitoring",
+		"CONSUL_TAG_4": "tag-z",
+	}
+
+	client := getMockedClient(pod)
+	provider := ServiceProvider{
+		Client:  client,
+		Timeout: 1 * time.Second,
+	}
+
+	services, err := provider.Get(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, services, 3)
+	client.client.AssertExpectations(t)
+
+	service := services[0]
+	assert.True(t, stringInSlice("instance:podName_31011", service.Tags))
+	assert.True(t, stringInSlice("compute-type:k8s", service.Tags))
+	assert.True(t, stringInSlice("tag-y", service.Tags))
+	assert.True(t, stringInSlice("default-monitoring", service.Tags))
+	assert.True(t, stringInSlice("tag-x:tag-x", service.Tags))
+	assert.True(t, stringInSlice("tag-z", service.Tags))
+	assert.False(t, stringInSlice("vip:vip.example.com_50000", service.Tags))
+	assert.Equal(t, "192.0.2.2_31011", service.ID)
+	assert.Equal(t, "simple-service", service.Name)
+	assert.Equal(t, 31011, service.Port)
+
+	service = services[1]
+	assert.True(t, stringInSlice("instance:podName_31012", service.Tags))
+	assert.True(t, stringInSlice("compute-type:k8s", service.Tags))
+	assert.True(t, stringInSlice("tag-y", service.Tags))
+	assert.True(t, stringInSlice("default-monitoring", service.Tags))
+	assert.True(t, stringInSlice("tag-x:tag-x", service.Tags))
+	assert.True(t, stringInSlice("tag-z", service.Tags))
+	assert.Equal(t, "192.0.2.2_31012", service.ID)
+	assert.Equal(t, "extra-service-without-vip", service.Name)
+	assert.Equal(t, 31012, service.Port)
+
+	service = services[2]
+	assert.True(t, stringInSlice("instance:podName_31013", service.Tags))
+	assert.True(t, stringInSlice("compute-type:k8s", service.Tags))
+	assert.True(t, stringInSlice("tag-y", service.Tags))
+	assert.True(t, stringInSlice("default-monitoring", service.Tags))
+	assert.True(t, stringInSlice("tag-z", service.Tags))
+	assert.True(t, stringInSlice("vip:vip.example.com_50000", service.Tags))
+	assert.True(t, stringInSlice("tag-x:tag-x", service.Tags))
+	assert.Equal(t, "192.0.2.2_31013", service.ID)
+	assert.Equal(t, "extra-service-with-vip", service.Name)
+	assert.Equal(t, 31013, service.Port)
+
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
 func TestIfReturnsServiceToRegisterAppPortWhenNoLabelSpecified(t *testing.T) {
 	containerName := "name"
 	podIP := "192.0.2.2"
@@ -537,6 +621,7 @@ func TestShouldCheckMultipleServicesWithGlobalTagsCombinedAndWithPortSpecificTag
 func TestShouldCheckMultipleServiceNames(t *testing.T) {
 	setEnv(t, "testdata/port_definitions_service_probe_secured.json")
 	defer unsetEnv(t)
+
 	pod := testPod()
 	tags := []string{"a", "b", "c"}
 	expectedServices := []consul.ServiceInstance{

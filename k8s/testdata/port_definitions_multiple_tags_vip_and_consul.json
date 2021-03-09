@@ -1,0 +1,22 @@
+[
+  {
+    "port": 31011,
+    "labels": {
+      "consul": "simple-service"
+    }
+  },
+  {
+    "port": 31012,
+    "labels": {
+      "test:test-label": "tag",
+      "consul": "extra-service-without-vip"
+    }
+  },
+  {
+    "port": 31013,
+    "labels": {
+      "vip:vip.example.com_50000": "tag",
+      "consul": "extra-service-with-vip"
+    }
+  }
+]

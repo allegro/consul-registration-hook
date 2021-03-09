@@ -267,10 +267,12 @@ func generateFromPortDefinitions(serviceName string, portDefinitions *portDefini
 				Host:  host,
 				Port:  portDefinition.Port,
 				Check: ConvertToConsulCheck(container.LivenessProbe, host),
-				Tags:  globalTags,
 			}
+			service.Tags = make([]string, 0, len(portDefinition.getTags())+len(globalTags)+1)
+			service.Tags = append(service.Tags, globalTags...)
 			service.Tags = append(service.Tags, portDefinition.getTags()...)
 			service.Tags = append(service.Tags, createInstanceTag(podName, portDefinition.Port))
+
 			services = append(services, service)
 		} else if portDefinition.isProbe() {
 			// probe is taken from liveness probe of first container, it is assumet to match this one
