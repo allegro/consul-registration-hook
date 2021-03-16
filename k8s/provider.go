@@ -24,6 +24,8 @@ const (
 	consulPodNamespaceLabelTemplate = "k8sPodNamespace: %s"
 	instanceFormat                  = "instance:%s_%d"
 	securedIDPostfix                = "-secured"
+	servicePortEnv                  = "PORT_SERVICE"
+	servicePortTemplate             = "service-port:%s"
 )
 
 // Client is an interface for client to Kubernetes API.
@@ -216,9 +218,15 @@ func generateFromContainerPorts(serviceName string, pod *corev1.Pod, globalTags 
 		Host:  host,
 		Port:  port,
 		Check: ConvertToConsulCheck(container.LivenessProbe, host),
-		Tags:  []string{createInstanceTag(podName, port)},
 	}
+	service.Tags = make([]string, 0, len(globalTags)+2)
 	service.Tags = append(service.Tags, globalTags...)
+
+	servicePort := os.Getenv(servicePortEnv)
+	if servicePort != "" {
+		service.Tags = append(service.Tags, fmt.Sprintf("service-port:%s", servicePort))
+	}
+	service.Tags = append(service.Tags, createInstanceTag(podName, port))
 
 	return []consul.ServiceInstance{service}, nil
 }
@@ -268,10 +276,14 @@ func generateFromPortDefinitions(serviceName string, portDefinitions *portDefini
 				Port:  portDefinition.Port,
 				Check: ConvertToConsulCheck(container.LivenessProbe, host),
 			}
-			service.Tags = make([]string, 0, len(portDefinition.getTags())+len(globalTags)+1)
+			service.Tags = make([]string, 0, len(portDefinition.getTags())+len(globalTags)+2)
 			service.Tags = append(service.Tags, globalTags...)
 			service.Tags = append(service.Tags, portDefinition.getTags()...)
 			service.Tags = append(service.Tags, createInstanceTag(podName, portDefinition.Port))
+			servicePort := os.Getenv(servicePortEnv)
+			if servicePort != "" && !stringInSlice(fmt.Sprintf(servicePortTemplate, ""), service.Tags) {
+				service.Tags = append(service.Tags, fmt.Sprintf(servicePortTemplate, servicePort))
+			}
 
 			services = append(services, service)
 		} else if portDefinition.isProbe() {
@@ -281,6 +293,15 @@ func generateFromPortDefinitions(serviceName string, portDefinitions *portDefini
 		}
 	}
 	return services, nil
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
 
 func createInstanceTag(podName string, podPort int) string {

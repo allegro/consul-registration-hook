@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sort"
 	"testing"
 
@@ -58,6 +59,9 @@ func TestIfReturnsEmptySliceToPodIsNotLabelledCorrectly(t *testing.T) {
 }
 
 func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
+	os.Setenv(servicePortEnv, "31011")
+	defer os.Unsetenv(servicePortEnv)
+
 	containerName := "name"
 	podIP := "192.0.2.2"
 
@@ -82,7 +86,8 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 
 	service := services[0]
 
-	assert.Equal(t, []string{"instance:podName_8080"}, service.Tags)
+	assert.True(t, stringInSlice("instance:podName_8080", service.Tags))
+	assert.True(t, stringInSlice("service-port:31011", service.Tags))
 	assert.Equal(t, "192.0.2.2_8080", service.ID)
 	assert.Equal(t, "serviceName", service.Name)
 	assert.Equal(t, 8080, service.Port)
@@ -127,6 +132,9 @@ func TestIfReturnsServiceToRegisterWhenLapeledContainerIsSpecified(t *testing.T)
 
 func TestIfReturnsServiceToRegisterWhenPortDefinitionsIsDefined(t *testing.T) {
 	setEnv(t, "testdata/port_definitions_multiple_tags_vip_and_consul.json")
+	os.Setenv(servicePortEnv, "31011")
+	defer os.Unsetenv(servicePortEnv)
+
 	defer unsetEnv(t)
 	containerName := "name"
 	podIP := "192.0.2.2"
@@ -166,6 +174,7 @@ func TestIfReturnsServiceToRegisterWhenPortDefinitionsIsDefined(t *testing.T) {
 	service := services[0]
 	assert.True(t, stringInSlice("instance:podName_31011", service.Tags))
 	assert.True(t, stringInSlice("compute-type:k8s", service.Tags))
+	assert.True(t, stringInSlice("service-port:31011", service.Tags))
 	assert.True(t, stringInSlice("tag-y", service.Tags))
 	assert.True(t, stringInSlice("default-monitoring", service.Tags))
 	assert.True(t, stringInSlice("tag-x:tag-x", service.Tags))
@@ -178,6 +187,7 @@ func TestIfReturnsServiceToRegisterWhenPortDefinitionsIsDefined(t *testing.T) {
 	service = services[1]
 	assert.True(t, stringInSlice("instance:podName_31012", service.Tags))
 	assert.True(t, stringInSlice("compute-type:k8s", service.Tags))
+	assert.True(t, stringInSlice("service-port:31011", service.Tags))
 	assert.True(t, stringInSlice("tag-y", service.Tags))
 	assert.True(t, stringInSlice("default-monitoring", service.Tags))
 	assert.True(t, stringInSlice("tag-x:tag-x", service.Tags))
@@ -189,6 +199,7 @@ func TestIfReturnsServiceToRegisterWhenPortDefinitionsIsDefined(t *testing.T) {
 	service = services[2]
 	assert.True(t, stringInSlice("instance:podName_31013", service.Tags))
 	assert.True(t, stringInSlice("compute-type:k8s", service.Tags))
+	assert.True(t, stringInSlice("service-port:31011", service.Tags))
 	assert.True(t, stringInSlice("tag-y", service.Tags))
 	assert.True(t, stringInSlice("default-monitoring", service.Tags))
 	assert.True(t, stringInSlice("tag-z", service.Tags))
@@ -200,14 +211,6 @@ func TestIfReturnsServiceToRegisterWhenPortDefinitionsIsDefined(t *testing.T) {
 
 }
 
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
-}
 
 func TestIfReturnsServiceToRegisterAppPortWhenNoLabelSpecified(t *testing.T) {
 	containerName := "name"
