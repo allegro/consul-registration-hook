@@ -8,6 +8,7 @@
   {
     "port": 31012,
     "labels": {
+      "service-port:31000": "tag",
       "test:test-label": "tag",
       "consul": "extra-service-without-vip"
     }
