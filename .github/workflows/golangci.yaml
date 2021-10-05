@@ -1,11 +1,10 @@
 name: golangci
 on:
   push:
-    tags:
-      - v[0-9]+.*
-    branches:
-      - master
+    branches: [ master ]
   pull_request:
+    branches: [ master ]
+  workflow_dispatch:
 jobs:
   golangci:
     name: lint test build
