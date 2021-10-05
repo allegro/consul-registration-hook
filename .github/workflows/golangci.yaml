@@ -23,3 +23,4 @@ jobs:
           args: --config=golangcilinter.yaml
       - name: Build and test project
         run: make test
+      - uses: codecov/codecov-action@v2

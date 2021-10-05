@@ -1,6 +1,6 @@
 # Consul Registration Hook
 
-[![Build Status](https://travis-ci.org/allegro/consul-registration-hook.svg?branch=master)](https://travis-ci.org/allegro/consul-registration-hook)
+[![Build Status](https://github.com/allegro/consul-registration-hook/actions/workflows/golangci.yaml/badge.svg)](https://github.com/allegro/consul-registration-hook/actions/workflows/golangci.yaml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/allegro/consul-registration-hook)](https://goreportcard.com/report/github.com/allegro/consul-registration-hook)
 [![Codecov](https://codecov.io/gh/allegro/consul-registration-hook/branch/master/graph/badge.svg)](https://codecov.io/gh/allegro/consul-registration-hook)
 [![GoDoc](https://godoc.org/github.com/allegro/consul-registration-hook?status.svg)](https://godoc.org/github.com/allegro/consul-registration-hook)
