@@ -14,7 +14,10 @@ jobs:
           fetch-depth: 0
       - name: build project
         run: make build
-      - uses: azure/setup-kubectl@v1
+      - name: install minikube
+        run: scripts/install_local_k8s.sh
+        env:
+          CHANGE_MINIKUBE_NONE_USER: true
       - name: integration test
         run: make integration-test
         env:
