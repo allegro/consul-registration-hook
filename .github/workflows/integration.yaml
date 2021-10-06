@@ -5,6 +5,8 @@ jobs:
   golangci:
     name: lint test build
     runs-on: ubuntu-latest
+    env:
+      CHANGE_MINIKUBE_NONE_USER: true
     steps:
       - uses: actions/setup-go@v2
         with:
@@ -16,9 +18,5 @@ jobs:
         run: make build
       - name: install minikube
         run: scripts/install_local_k8s.sh
-        env:
-          CHANGE_MINIKUBE_NONE_USER: true
       - name: integration test
         run: make integration-test
-        env:
-          CHANGE_MINIKUBE_NONE_USER: true
