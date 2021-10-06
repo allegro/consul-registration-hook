@@ -24,6 +24,7 @@ const (
 	consulPodNamespaceLabelTemplate = "k8sPodNamespace: %s"
 	instanceFormat                  = "instance:%s_%d"
 	securedIDPostfix                = "-secured"
+	lbaasPrefix                     = "lbaas:"
 	servicePortEnv                  = "PORT_SERVICE"
 	servicePortTemplate             = "service-port:%s"
 )
@@ -263,11 +264,13 @@ func generateFromPortDefinitions(serviceName string, portDefinitions *portDefini
 		if labeledServiceName != "" {
 			serviceName = labeledServiceName
 		}
+		isSecureService := false
 
 		if portDefinition.isService() || labeledServiceName != "" || (idx == 0 && !portDefinitions.HasServicePortDefined()) {
 			id := fmt.Sprintf("%s_%d", host, portDefinition.Port)
 			if strings.Contains(serviceName, securedIDPostfix) {
 				id = fmt.Sprintf("%s_%d%s", host, portDefinition.Port, securedIDPostfix)
+				isSecureService = true
 			}
 			service := consul.ServiceInstance{
 				ID:    id,
@@ -277,7 +280,15 @@ func generateFromPortDefinitions(serviceName string, portDefinitions *portDefini
 				Check: ConvertToConsulCheck(container.LivenessProbe, host),
 			}
 			service.Tags = make([]string, 0, len(portDefinition.getTags())+len(globalTags)+2)
-			service.Tags = append(service.Tags, globalTags...)
+			if isSecureService {
+				for _, globalTag := range globalTags {
+					if !strings.HasPrefix(globalTag, lbaasPrefix) {
+						service.Tags = append(service.Tags, globalTag)
+					}
+				}
+			} else {
+				service.Tags = append(service.Tags, globalTags...)
+			}
 			service.Tags = append(service.Tags, portDefinition.getTags()...)
 			service.Tags = append(service.Tags, createInstanceTag(podName, portDefinition.Port))
 			servicePort := os.Getenv(servicePortEnv)

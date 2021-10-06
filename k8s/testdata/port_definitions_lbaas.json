@@ -1,0 +1,20 @@
+[
+    {
+      "port": 31010,
+      "labels": {
+        "envoy:secureConnection": "tag",
+        "envoy": "tag",
+        "service-port:31010": "tag",
+        "consul": "simple-service"
+      }
+    },
+    {
+      "port": 31011,
+      "labels": {
+        "secureConnection:true": "tag",
+        "service-port:31011": "tag",
+        "consul": "simple-service-secured"
+      }
+    }
+  ]
+  

@@ -93,7 +93,7 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 	assert.Equal(t, 8080, service.Port)
 }
 
-func TestIfReturnsServiceToRegisterWhenLapeledContainerIsSpecified(t *testing.T) {
+func TestIfReturnsServiceToRegisterWhenLabeledContainerIsSpecified(t *testing.T) {
 	containerName := "name"
 	podIP := "192.0.2.2"
 
@@ -209,6 +209,73 @@ func TestIfReturnsServiceToRegisterWhenPortDefinitionsIsDefined(t *testing.T) {
 	assert.Equal(t, "extra-service-with-vip", service.Name)
 	assert.Equal(t, 31013, service.Port)
 
+}
+
+func TestIfReturnsServiceToRegisterWhenPortDefinitionsAndLbaasIsDefined(t *testing.T) {
+	setEnv(t, "testdata/port_definitions_lbaas.json")
+	os.Setenv(servicePortEnv, "31010")
+	defer os.Unsetenv(servicePortEnv)
+
+	defer unsetEnv(t)
+	containerName := "name"
+	podIP := "192.0.2.2"
+
+	appContainerIndex := 0
+	envoyContainerIndex := 1
+
+	appContainerPort := int32(8080)
+	sidecarContainerPort := int32(8181)
+	pod := testPod()
+	pod.Metadata.Labels[consulLabelKey] = "serviceName"
+	pod.Metadata.Labels[consulRegisterLabelKey] = "sidecar"
+	pod.Status.PodIP = &podIP
+	pod.Spec.Containers[appContainerIndex].Name = &containerName
+	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &appContainerPort})
+	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &sidecarContainerPort})
+	pod.Metadata.Annotations = map[string]string{
+		"CONSUL_TAG_0": "tag-x:tag-x",
+		"CONSUL_TAG_1": "tag-y",
+		"CONSUL_TAG_2": "compute-type:k8s",
+		"CONSUL_TAG_3": "default-monitoring",
+		"CONSUL_TAG_4": "lbaas:service.example.com_80",
+	}
+
+	client := getMockedClient(pod)
+	provider := ServiceProvider{
+		Client:  client,
+		Timeout: 1 * time.Second,
+	}
+
+	services, err := provider.Get(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, services, 2)
+	client.client.AssertExpectations(t)
+
+	service := services[0]
+	assert.True(t, stringInSlice("instance:podName_31010", service.Tags), "missing tag instance:podName_31010")
+	assert.True(t, stringInSlice("compute-type:k8s", service.Tags), "missing tag compute-type:k8s")
+	assert.True(t, stringInSlice("service-port:31010", service.Tags), "missing tag service-port:31010")
+	assert.True(t, stringInSlice("envoy", service.Tags), "missing tag envoy")
+	assert.True(t, stringInSlice("tag-x:tag-x", service.Tags), "missing tag tag-x:tag-x")
+	assert.True(t, stringInSlice("tag-y", service.Tags), "missing tag tag-y")
+	assert.True(t, stringInSlice("default-monitoring", service.Tags), "missing tag default-monitoring")
+	assert.True(t, stringInSlice("lbaas:service.example.com_80", service.Tags), "missing tag lbaas:service.example.com_80")
+	assert.Equal(t, "192.0.2.2_31010", service.ID)
+	assert.Equal(t, "simple-service", service.Name)
+	assert.Equal(t, 31010, service.Port)
+
+	service = services[1]
+	assert.True(t, stringInSlice("instance:podName_31011", service.Tags), "missing tag instance:podName_31011")
+	assert.True(t, stringInSlice("compute-type:k8s", service.Tags), "missing tag compute-type:k8s")
+	assert.False(t, stringInSlice("envoy", service.Tags), "missing tag envoy")
+	assert.True(t, stringInSlice("tag-x:tag-x", service.Tags), "missing tag tag-x:tag-x")
+	assert.True(t, stringInSlice("tag-y", service.Tags), "missing tag tag-y")
+	assert.True(t, stringInSlice("default-monitoring", service.Tags), "missing tag default-monitoring")
+	assert.False(t, stringInSlice("lbaas:service.example.com_80", service.Tags), "unwanted tag lbaas:service.example.com_80")
+	assert.Equal(t, "192.0.2.2_31011-secured", service.ID)
+	assert.Equal(t, "simple-service-secured", service.Name)
+	assert.Equal(t, 31011, service.Port)
 }
 
 func TestIfReturnsServiceToRegisterAppPortWhenNoLabelSpecified(t *testing.T) {
