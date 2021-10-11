@@ -4,24 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"sort"
 	"testing"
 
 	"github.com/allegro/consul-registration-hook/consul"
-	"github.com/ericchiang/k8s"
-	"github.com/ericchiang/k8s/runtime"
-	"github.com/golang/protobuf/proto"
-
 	"time"
 
-	corev1 "github.com/ericchiang/k8s/apis/core/v1"
-	metav1 "github.com/ericchiang/k8s/apis/meta/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	testclient "k8s.io/client-go/kubernetes/fake"
 )
 
 func TestIfFailsIfKubernetesAPIFails(t *testing.T) {
@@ -67,10 +62,10 @@ func TestIfReturnsServiceToRegisterIfAbleToCallKubernetesAPI(t *testing.T) {
 
 	port := int32(8080)
 	pod := testPod()
-	pod.Metadata.Labels[consulLabelKey] = "serviceName"
-	pod.Status.PodIP = &podIP
-	pod.Spec.Containers[0].Name = &containerName
-	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, &corev1.ContainerPort{ContainerPort: &port})
+	pod.ObjectMeta.Labels[consulLabelKey] = "serviceName"
+	pod.Status.PodIP = podIP
+	pod.Spec.Containers[0].Name = containerName
+	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: port})
 
 	client := getMockedClient(pod)
 	provider := ServiceProvider{
@@ -103,12 +98,12 @@ func TestIfReturnsServiceToRegisterWhenLabeledContainerIsSpecified(t *testing.T)
 	appContainerPort := int32(8080)
 	sidecarContainerPort := int32(8181)
 	pod := testPod()
-	pod.Metadata.Labels[consulLabelKey] = "serviceName"
-	pod.Metadata.Labels[consulRegisterLabelKey] = "sidecar"
-	pod.Status.PodIP = &podIP
-	pod.Spec.Containers[appContainerIndex].Name = &containerName
-	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &appContainerPort})
-	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &sidecarContainerPort})
+	pod.ObjectMeta.Labels[consulLabelKey] = "serviceName"
+	pod.ObjectMeta.Labels[consulRegisterLabelKey] = "sidecar"
+	pod.Status.PodIP = podIP
+	pod.Spec.Containers[appContainerIndex].Name = containerName
+	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, corev1.ContainerPort{ContainerPort: appContainerPort})
+	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, corev1.ContainerPort{ContainerPort: sidecarContainerPort})
 
 	client := getMockedClient(pod)
 	provider := ServiceProvider{
@@ -145,13 +140,13 @@ func TestIfReturnsServiceToRegisterWhenPortDefinitionsIsDefined(t *testing.T) {
 	appContainerPort := int32(8080)
 	sidecarContainerPort := int32(8181)
 	pod := testPod()
-	pod.Metadata.Labels[consulLabelKey] = "serviceName"
-	pod.Metadata.Labels[consulRegisterLabelKey] = "sidecar"
-	pod.Status.PodIP = &podIP
-	pod.Spec.Containers[appContainerIndex].Name = &containerName
-	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &appContainerPort})
-	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &sidecarContainerPort})
-	pod.Metadata.Annotations = map[string]string{
+	pod.ObjectMeta.Labels[consulLabelKey] = "serviceName"
+	pod.ObjectMeta.Labels[consulRegisterLabelKey] = "sidecar"
+	pod.Status.PodIP = podIP
+	pod.Spec.Containers[appContainerIndex].Name = containerName
+	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, corev1.ContainerPort{ContainerPort: appContainerPort})
+	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, corev1.ContainerPort{ContainerPort: sidecarContainerPort})
+	pod.ObjectMeta.Annotations = map[string]string{
 		"CONSUL_TAG_0": "tag-x:tag-x",
 		"CONSUL_TAG_1": "compute-type:k8s",
 		"CONSUL_TAG_2": "tag-y",
@@ -226,13 +221,13 @@ func TestIfReturnsServiceToRegisterWhenPortDefinitionsAndLbaasIsDefined(t *testi
 	appContainerPort := int32(8080)
 	sidecarContainerPort := int32(8181)
 	pod := testPod()
-	pod.Metadata.Labels[consulLabelKey] = "serviceName"
-	pod.Metadata.Labels[consulRegisterLabelKey] = "sidecar"
-	pod.Status.PodIP = &podIP
-	pod.Spec.Containers[appContainerIndex].Name = &containerName
-	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &appContainerPort})
-	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &sidecarContainerPort})
-	pod.Metadata.Annotations = map[string]string{
+	pod.ObjectMeta.Labels[consulLabelKey] = "serviceName"
+	pod.ObjectMeta.Labels[consulRegisterLabelKey] = "sidecar"
+	pod.Status.PodIP = podIP
+	pod.Spec.Containers[appContainerIndex].Name = containerName
+	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, corev1.ContainerPort{ContainerPort: appContainerPort})
+	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, corev1.ContainerPort{ContainerPort: sidecarContainerPort})
+	pod.ObjectMeta.Annotations = map[string]string{
 		"CONSUL_TAG_0": "tag-x:tag-x",
 		"CONSUL_TAG_1": "tag-y",
 		"CONSUL_TAG_2": "compute-type:k8s",
@@ -288,11 +283,11 @@ func TestIfReturnsServiceToRegisterAppPortWhenNoLabelSpecified(t *testing.T) {
 	appContainerPort := int32(8080)
 	sidecarContainerPort := int32(8181)
 	pod := testPod()
-	pod.Metadata.Labels[consulLabelKey] = "serviceName"
-	pod.Status.PodIP = &podIP
-	pod.Spec.Containers[appContainerIndex].Name = &containerName
-	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &appContainerPort})
-	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, &corev1.ContainerPort{ContainerPort: &sidecarContainerPort})
+	pod.ObjectMeta.Labels[consulLabelKey] = "serviceName"
+	pod.Status.PodIP = podIP
+	pod.Spec.Containers[appContainerIndex].Name = containerName
+	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, corev1.ContainerPort{ContainerPort: appContainerPort})
+	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, corev1.ContainerPort{ContainerPort: sidecarContainerPort})
 
 	client := getMockedClient(pod)
 	provider := ServiceProvider{
@@ -321,10 +316,10 @@ func TestIfReturnsErrorWhenNoPortsDefined(t *testing.T) {
 	appContainerIndex := 0
 
 	pod := testPod()
-	pod.Metadata.Labels[consulLabelKey] = "serviceName"
-	pod.Metadata.Labels[consulRegisterLabelKey] = "sidecar"
-	pod.Status.PodIP = &podIP
-	pod.Spec.Containers[appContainerIndex].Name = &containerName
+	pod.ObjectMeta.Labels[consulLabelKey] = "serviceName"
+	pod.ObjectMeta.Labels[consulRegisterLabelKey] = "sidecar"
+	pod.Status.PodIP = podIP
+	pod.Spec.Containers[appContainerIndex].Name = containerName
 
 	client := getMockedClient(pod)
 	provider := ServiceProvider{
@@ -341,7 +336,7 @@ func TestIfFailsWhenUnableToDetermineIP(t *testing.T) {
 
 	podWithoutIP := composeTestCasePod(nil)
 	emptyIP := ""
-	podWithoutIP.Status.PodIP = &emptyIP
+	podWithoutIP.Status.PodIP = emptyIP
 	client.client.On("GetPod", context.Background(), "", "").
 		Return(podWithoutIP, nil)
 
@@ -364,7 +359,7 @@ func TestIfRetriesWhenInitialIPEmpty(t *testing.T) {
 
 	podWithoutIP := composeTestCasePod(nil)
 	emptyIP := ""
-	podWithoutIP.Status.PodIP = &emptyIP
+	podWithoutIP.Status.PodIP = emptyIP
 	client.client.On("GetPod", context.Background(), "", "").
 		Return(podWithoutIP, nil).Times(3)
 
@@ -442,10 +437,10 @@ func composeTestCasePod(annotations map[string]string) *corev1.Pod {
 	port := int32(8080)
 	containerName := "name"
 	pod := testPod()
-	pod.Metadata.Annotations = annotations
-	pod.Metadata.Labels[consulLabelKey] = "serviceName"
-	pod.Spec.Containers[0].Name = &containerName
-	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, &corev1.ContainerPort{ContainerPort: &port})
+	pod.ObjectMeta.Annotations = annotations
+	pod.ObjectMeta.Labels[consulLabelKey] = "serviceName"
+	pod.Spec.Containers[0].Name = containerName
+	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: port})
 
 	return pod
 }
@@ -478,35 +473,29 @@ func getMockedClient(pod *corev1.Pod) *MockClient {
 }
 
 func TestIfConvertNodeFailureDomainTagsToConsulTags(t *testing.T) {
+	containerName := "name"
+	podIP := "192.0.2.2"
+
+	appContainerIndex := 0
+	envoyContainerIndex := 1
+
+	appContainerPort := int32(8080)
+	sidecarContainerPort := int32(8181)
 	pod := testPod()
-	pod.Spec.NodeName = k8s.String("testNode")
+	pod.ObjectMeta.Labels[consulLabelKey] = "serviceName"
+	pod.ObjectMeta.Labels[consulRegisterLabelKey] = "sidecar"
+	pod.Status.PodIP = podIP
+	pod.Spec.Containers[appContainerIndex].Name = containerName
+	pod.Spec.Containers[appContainerIndex].Ports = append(pod.Spec.Containers[appContainerIndex].Ports, corev1.ContainerPort{ContainerPort: appContainerPort})
+	pod.Spec.Containers[envoyContainerIndex].Ports = append(pod.Spec.Containers[envoyContainerIndex].Ports, corev1.ContainerPort{ContainerPort: sidecarContainerPort})
+	pod.Spec.NodeName = "testNode"
+
 	node := testNode()
-
-	data, err := marshalPB(node)
-
-	if err != nil {
-		t.Errorf("Test failed due to marshalling: %s", err)
-	}
-
-	// Create a test server
-	testServer := httptest.NewServer(http.HandlerFunc(
-		func(res http.ResponseWriter, req *http.Request) {
-			switch req.RequestURI {
-			case "/api/v1/nodes/testNode":
-				res.Header().Set("Content-Type", "application/vnd.kubernetes.protobuf")
-				res.Write(data)
-			default:
-				http.Error(res, "", http.StatusNotFound)
-				return
-			}
-		},
-	),
-	)
-	defer testServer.Close()
-
-	client := &defaultClient{k8sClient: NewTestK8sClient(testServer.URL)}
+	client := defaultClient{k8sClient: testclient.NewSimpleClientset()}
+	_, err := client.k8sClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
 
 	tags, err := client.GetFailureDomainTags(context.Background(), pod)
+	fmt.Printf("%v", tags)
 	require.NoError(t, err)
 	assert.Contains(t, tags, "region:region1")
 	assert.Contains(t, tags, "zone:zone1")
@@ -517,24 +506,24 @@ func testPod() *corev1.Pod {
 	podName := "podName"
 
 	return &corev1.Pod{
-		Spec: &corev1.PodSpec{
-			Containers: []*corev1.Container{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
 				{
-					Ports: []*corev1.ContainerPort{},
+					Ports: []corev1.ContainerPort{},
 				},
 				{
-					Name:  k8s.String("sidecar"),
-					Ports: []*corev1.ContainerPort{},
+					Name:  "sidecar",
+					Ports: []corev1.ContainerPort{},
 				},
 			},
 		},
-		Status: &corev1.PodStatus{
-			PodIP: &podIP,
-		},
-		Metadata: &metav1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
-			Name:        &podName,
+			Name:        podName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: podIP,
 		},
 	}
 }
@@ -545,22 +534,13 @@ func testNode() *corev1.Node {
 	labels["failure-domain.beta.kubernetes.io/zone"] = "zone1"
 
 	return &corev1.Node{
-		Spec:   &corev1.NodeSpec{},
-		Status: &corev1.NodeStatus{},
-		Metadata: &metav1.ObjectMeta{
-			Name:   k8s.String("testNode"),
+		Spec:   corev1.NodeSpec{},
+		Status: corev1.NodeStatus{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "testNode",
 			Labels: labels,
 		},
 	}
-}
-
-func NewTestK8sClient(url string) *k8s.Client {
-	client := &k8s.Client{
-		Endpoint:  url,
-		Namespace: "",
-		Client:    http.DefaultClient,
-	}
-	return client
 }
 
 type MockClient struct {
@@ -585,31 +565,6 @@ func (c *MockClient) GetFailureDomainTags(ctx context.Context, pod *corev1.Pod) 
 	return args.Get(0).([]string), args.Error(1)
 }
 
-// Borrowed from github.com/ericchiang/k8s/codec.go
-func marshalPB(obj interface{}) ([]byte, error) {
-	var magicBytes = []byte{0x6b, 0x38, 0x73, 0x00}
-	message, ok := obj.(proto.Message)
-	if !ok {
-		return nil, fmt.Errorf("expected obj of type proto.Message, got %T", obj)
-	}
-	payload, err := proto.Marshal(message)
-	if err != nil {
-		return nil, err
-	}
-
-	// The URL path informs the API server what the API group, version, and resource
-	// of the object. We don't need to specify it here to talk to the API server.
-	body, err := (&runtime.Unknown{Raw: payload}).Marshal()
-	if err != nil {
-		return nil, err
-	}
-
-	d := make([]byte, len(magicBytes)+len(body))
-	copy(d[:len(magicBytes)], magicBytes)
-	copy(d[len(magicBytes):], body)
-	return d, nil
-}
-
 func TestGenerateServicesWithProperHealthCheck(t *testing.T) {
 	setEnv(t, "testdata/port_definitions_probe_and_service_only.json")
 	defer unsetEnv(t)
@@ -617,9 +572,9 @@ func TestGenerateServicesWithProperHealthCheck(t *testing.T) {
 	pod := testPod()
 	path := "/status/ping"
 	pod.Spec.Containers[0].LivenessProbe = &corev1.Probe{
-		Handler: &corev1.Handler{
-			HttpGet: &corev1.HTTPGetAction{
-				Path: &path,
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: path,
 			},
 		},
 	}
