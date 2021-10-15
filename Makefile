@@ -30,8 +30,8 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 lint: lint-deps
-	$(BIN)/golangci-lint --version
-	$(BIN)/golangci-lint run --config=golangcilinter.yaml ./...
+	golangci-lint --version
+	golangci-lint run --config=golangcilinter.yaml ./...
 
 lint-deps:
 	@which golangci-lint > /dev/null || \

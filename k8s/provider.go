@@ -10,8 +10,10 @@ import (
 
 	"github.com/allegro/consul-registration-hook/consul"
 
-	"github.com/ericchiang/k8s"
-	corev1 "github.com/ericchiang/k8s/apis/core/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 const (
@@ -38,26 +40,33 @@ type Client interface {
 }
 
 type defaultClient struct {
-	k8sClient *k8s.Client
+	k8sClient kubernetes.Interface
 }
 
 func (c *defaultClient) GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error) {
-	pod := &corev1.Pod{}
-	if err := c.k8sClient.Get(ctx, namespace, name, pod); err != nil {
+	pod, err := c.k8sClient.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
 		return nil, fmt.Errorf("unable to get pod data from API: %s", err)
 	}
 
 	return pod, nil
 }
 
+func (c *defaultClient) GetNode(ctx context.Context, nodeName string) (*corev1.Node, error) {
+	node, err := c.k8sClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get pod data from API: %s", err)
+	}
+	return node, nil
+}
+
 func (c *defaultClient) GetFailureDomainTags(ctx context.Context, pod *corev1.Pod) ([]string, error) {
-	node := &corev1.Node{}
-	if err := c.k8sClient.Get(ctx, "", pod.GetSpec().GetNodeName(), node); err != nil {
+	node, err := c.GetNode(ctx, pod.Spec.NodeName)
+	if err != nil {
 		return nil, fmt.Errorf("unable to get node data from API: %s", err)
 	}
-	labels := node.GetMetadata().GetLabels()
 	var tags []string
-	for k, v := range labels {
+	for k, v := range node.Labels {
 		if strings.Contains(k, "failure-domain.beta.kubernetes.io") {
 			tags = append(tags, fmt.Sprintf("%s:%s", strings.Split(k, "/")[1], v))
 		}
@@ -121,8 +130,8 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 		return nil, fmt.Errorf("unable to get pod data from API: %s", err)
 	}
 
-	serviceName, ok := pod.Metadata.Labels[consulLabelKey]
-	if !ok {
+	serviceName := pod.GetObjectMeta().GetLabels()[consulLabelKey]
+	if serviceName == "" {
 		return nil, nil
 	}
 
@@ -139,8 +148,8 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 	globalTags = append(globalTags, failureDomainTags...)
 
 	// annotations allows us to store non alphanumeric values, unlike labels values (alphanumeric, max 63 characters.
-	annotations := pod.GetMetadata().GetAnnotations()
-	for key, value := range annotations {
+	//annotations := pod.GetMetadata().GetAnnotations()
+	for key, value := range pod.Annotations {
 		if strings.HasPrefix(key, consulTagPrefix) && len(value) > 0 {
 			globalTags = append(globalTags, value)
 		}
@@ -149,16 +158,23 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 	return generateServices(serviceName, pod, globalTags)
 }
 
+// client returns kubernetes clientset
 func (p *ServiceProvider) client() (Client, error) {
 	if p.Client != nil {
 		return p.Client, nil
 	}
-	client, err := k8s.NewInClusterClient()
+	// creates the in-cluster config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("couldn't initialize client: %s", err)
+	}
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't initialize client: %s", err)
 	}
 	return &defaultClient{
-		k8sClient: client,
+		k8sClient: clientset,
 	}, nil
 }
 
@@ -171,7 +187,8 @@ func (p *ServiceProvider) getPodWithRetry(ctx context.Context, client Client, po
 			if err != nil {
 				log.Printf("unable to get pod data from API: %s", err)
 			} else {
-				if pod.GetStatus().GetPodIP() != "" {
+
+				if pod.Status.PodIP != "" {
 					ch <- pod
 				}
 			}
@@ -209,9 +226,9 @@ func generateFromContainerPorts(serviceName string, pod *corev1.Pod, globalTags 
 		return nil, err
 	}
 
-	podName := pod.GetMetadata().GetName()
-	host := pod.GetStatus().GetPodIP()
-	port := int(*container.Ports[0].ContainerPort)
+	podName := pod.Name
+	host := pod.Status.PodIP
+	port := int(container.Ports[0].ContainerPort)
 
 	service := consul.ServiceInstance{
 		ID:    fmt.Sprintf("%s_%d", host, port),
@@ -234,14 +251,14 @@ func generateFromContainerPorts(serviceName string, pod *corev1.Pod, globalTags 
 
 func getContainerToRegister(pod *corev1.Pod) (*corev1.Container, error) {
 	var containerToRegister *corev1.Container
-	containerToRegisterName, containerDefined := pod.Metadata.Labels[consulRegisterLabelKey]
+	containerToRegisterName, containerDefined := pod.GetObjectMeta().GetLabels()[consulRegisterLabelKey]
 
 	for _, container := range pod.Spec.Containers {
-		if *container.Name == containerToRegisterName && len(container.Ports) > 0 {
-			containerToRegister = container
+		if container.Name == containerToRegisterName && len(container.Ports) > 0 {
+			containerToRegister = &container
 			break
 		} else if !containerDefined && len(container.Ports) > 0 {
-			containerToRegister = container
+			containerToRegister = &container
 			break
 		}
 	}
@@ -254,8 +271,8 @@ func getContainerToRegister(pod *corev1.Pod) (*corev1.Container, error) {
 
 func generateFromPortDefinitions(serviceName string, portDefinitions *portDefinitions, pod *corev1.Pod, globalTags []string) ([]consul.ServiceInstance, error) {
 	var services []consul.ServiceInstance
-	host := pod.GetStatus().GetPodIP()
-	podName := pod.GetMetadata().GetName()
+	host := pod.Status.PodIP
+	podName := pod.Name
 	// TODO(tz) - provide container id with readiness probe
 	container := pod.Spec.Containers[0]
 

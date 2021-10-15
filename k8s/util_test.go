@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	corev1 "github.com/ericchiang/k8s/apis/core/v1"
-	"github.com/ericchiang/k8s/util/intstr"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/allegro/consul-registration-hook/consul"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestIfConvertsNilProbeToNilCheck(t *testing.T) {
@@ -22,15 +22,15 @@ func TestIfConvertsHTTPProbeToHTTPCheck(t *testing.T) {
 	port := int32(8080)
 
 	httpProbe := &corev1.Probe{
-		Handler: &corev1.Handler{
-			HttpGet: &corev1.HTTPGetAction{
-				Host: &localhost,
-				Path: &path,
-				Port: &intstr.IntOrString{IntVal: &port},
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Host: localhost,
+				Path: path,
+				Port: intstr.IntOrString{IntVal: port},
 			},
 		},
-		PeriodSeconds:  &sixtySeconds,
-		TimeoutSeconds: &sixtySeconds,
+		PeriodSeconds:  sixtySeconds,
+		TimeoutSeconds: sixtySeconds,
 	}
 
 	httpCheck := ConvertToConsulCheck(httpProbe, "localhost")
@@ -46,13 +46,13 @@ func TestIfConvertsTCPProbeToTCPCheck(t *testing.T) {
 	port := int32(8080)
 
 	httpProbe := &corev1.Probe{
-		Handler: &corev1.Handler{
-			TcpSocket: &corev1.TCPSocketAction{
-				Port: &intstr.IntOrString{IntVal: &port},
+		Handler: corev1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.IntOrString{IntVal: port},
 			},
 		},
-		PeriodSeconds:  &sixtySeconds,
-		TimeoutSeconds: &sixtySeconds,
+		PeriodSeconds:  sixtySeconds,
+		TimeoutSeconds: sixtySeconds,
 	}
 
 	httpCheck := ConvertToConsulCheck(httpProbe, "localhost")
