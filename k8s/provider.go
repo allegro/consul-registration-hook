@@ -45,7 +45,7 @@ type defaultClient struct {
 
 func (c *defaultClient) GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error) {
 	pod, err := c.k8sClient.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
-	if err == nil {
+	if err != nil {
 		return nil, fmt.Errorf("unable to get pod data from API: %s", err)
 	}
 
