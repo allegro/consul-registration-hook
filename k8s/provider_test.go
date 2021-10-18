@@ -8,8 +8,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/allegro/consul-registration-hook/consul"
 	"time"
+
+	"github.com/allegro/consul-registration-hook/consul"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -582,6 +583,41 @@ func TestGenerateServicesWithProperHealthCheck(t *testing.T) {
 		{
 			Check: &consul.Check{
 				Address: "http://192.0.2.2:0/status/ping",
+				Type:    "HTTP_GET",
+			},
+		},
+	}
+
+	services, err := generateServices("serviceName", pod, nil)
+	require.NoError(t, err)
+
+	assert.Len(t, services, 1)
+	assert.Equal(t, expectedServices[0].Check, services[0].Check)
+}
+
+func TestGenerateServicesWithReadinessHealthCheckIfExists(t *testing.T) {
+	setEnv(t, "testdata/port_definitions_probe_and_service_only.json")
+	defer unsetEnv(t)
+
+	pod := testPod()
+	pod.Spec.Containers[0].LivenessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/status/ping",
+			},
+		},
+	}
+	pod.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/status/ready",
+			},
+		},
+	}
+	expectedServices := []consul.ServiceInstance{
+		{
+			Check: &consul.Check{
+				Address: "http://192.0.2.2:0/status/ready",
 				Type:    "HTTP_GET",
 			},
 		},

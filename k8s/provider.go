@@ -229,13 +229,17 @@ func generateFromContainerPorts(serviceName string, pod *corev1.Pod, globalTags 
 	podName := pod.Name
 	host := pod.Status.PodIP
 	port := int(container.Ports[0].ContainerPort)
+	probe := container.LivenessProbe
+	if container.ReadinessProbe != nil {
+		probe = container.ReadinessProbe
+	}
 
 	service := consul.ServiceInstance{
 		ID:    fmt.Sprintf("%s_%d", host, port),
 		Name:  serviceName,
 		Host:  host,
 		Port:  port,
-		Check: ConvertToConsulCheck(container.LivenessProbe, host),
+		Check: ConvertToConsulCheck(probe, host),
 	}
 	service.Tags = make([]string, 0, len(globalTags)+2)
 	service.Tags = append(service.Tags, globalTags...)
@@ -289,12 +293,16 @@ func generateFromPortDefinitions(serviceName string, portDefinitions *portDefini
 				id = fmt.Sprintf("%s_%d%s", host, portDefinition.Port, securedIDPostfix)
 				isSecureService = true
 			}
+			probe := container.LivenessProbe
+			if container.ReadinessProbe != nil {
+				probe = container.ReadinessProbe
+			}
 			service := consul.ServiceInstance{
 				ID:    id,
 				Name:  serviceName,
 				Host:  host,
 				Port:  portDefinition.Port,
-				Check: ConvertToConsulCheck(container.LivenessProbe, host),
+				Check: ConvertToConsulCheck(probe, host),
 			}
 			service.Tags = make([]string, 0, len(portDefinition.getTags())+len(globalTags)+2)
 			if isSecureService {
