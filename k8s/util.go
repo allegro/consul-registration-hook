@@ -1,18 +1,22 @@
 package k8s
 
 import (
+	"context"
+	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strconv"
 	"time"
 
-	// corev1 "github.com/ericchiang/k8s/apis/core/v1"
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/allegro/consul-registration-hook/consul"
+	corev1 "k8s.io/api/core/v1"
 )
 
-const defaultScheme = "http"
+const (
+	defaultScheme = "http"
+	connTimeOut   = 2
+)
 
 // ConvertToConsulCheck converts Kubernetes probe definition to Consul check
 // definition.
@@ -48,4 +52,30 @@ func ConvertToConsulCheck(probe *corev1.Probe, host string) *consul.Check {
 		Interval: interval,
 		Timeout:  timeout,
 	}
+}
+
+func doHTTPCheck(url string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(connTimeOut*time.Second))
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return err
+	}
+	if _, err := http.DefaultClient.Do(request); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func doTCPCheck(ip, port string) error {
+	timeout := time.Duration(connTimeOut) * time.Second
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%s", ip, port), timeout)
+	if err != nil {
+		return err
+	}
+	if err = conn.Close(); err != nil {
+		return err
+	}
+	return nil
 }

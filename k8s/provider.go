@@ -29,6 +29,7 @@ const (
 	lbaasPrefix                     = "lbaas:"
 	servicePortEnv                  = "PORT_SERVICE"
 	servicePortTemplate             = "service-port:%s"
+	sleepTime                       = 2
 )
 
 // Client is an interface for client to Kubernetes API.
@@ -37,6 +38,8 @@ type Client interface {
 	GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error)
 	// GetFailureDomainTags returns current failure domain for pod
 	GetFailureDomainTags(ctx context.Context, pod *corev1.Pod) ([]string, error)
+	// DoProbeCheck check if service is alive
+	DoProbeCheck(pod *corev1.Probe, ip string) error
 }
 
 type defaultClient struct {
@@ -155,6 +158,11 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 		}
 	}
 
+	probe := p.getProbe(pod)
+	if probe != nil {
+		p.checkServiceLiveness(probe, pod.Status.PodIP)
+	}
+
 	return generateServices(serviceName, pod, globalTags)
 }
 
@@ -206,6 +214,87 @@ func (p *ServiceProvider) getPodWithRetry(ctx context.Context, client Client, po
 		close(ch)
 		return nil, fmt.Errorf("could not get valid Pod data after %s", p.Timeout)
 	}
+}
+
+func (p *ServiceProvider) getProbe(pod *corev1.Pod) *corev1.Probe {
+	container := pod.Spec.Containers[0]
+	if container.StartupProbe != nil {
+		return container.StartupProbe
+	}
+	if container.ReadinessProbe != nil {
+		return container.ReadinessProbe
+	}
+	return nil
+}
+
+func (p *ServiceProvider) getInitialDelay(pod *corev1.Pod) int32 {
+	container := pod.Spec.Containers[0]
+	if container.StartupProbe != nil {
+		if container.StartupProbe.InitialDelaySeconds > 0 {
+			return container.StartupProbe.InitialDelaySeconds
+		}
+	}
+	if container.ReadinessProbe != nil {
+		if container.ReadinessProbe.InitialDelaySeconds > 0 {
+			return container.ReadinessProbe.InitialDelaySeconds
+		}
+	}
+	return 0
+}
+
+func getPortFromProbe(probe *corev1.Probe) string {
+	if probe.HTTPGet != nil {
+		return probe.HTTPGet.Port.String()
+	} else if probe.TCPSocket != nil {
+		return probe.TCPSocket.Port.String()
+	}
+	return ""
+}
+
+func getHTTPSchemaFromProbe(probe *corev1.Probe) string {
+	if probe.HTTPGet.Scheme != "" {
+		return "http"
+	}
+	if probe.HTTPGet.Scheme == "HTTPS" {
+		return "https"
+	}
+	return "http"
+}
+
+func (c *defaultClient) DoProbeCheck(probe *corev1.Probe, podIP string) error {
+	port := getPortFromProbe(probe)
+
+	if probe.HTTPGet != nil {
+		schema := getHTTPSchemaFromProbe(probe)
+		path := probe.HTTPGet.Path
+		url := fmt.Sprintf("%s://%s:%s%s", schema, podIP, port, path)
+		return doHTTPCheck(url)
+	} else if probe.TCPSocket != nil {
+		return doTCPCheck(podIP, port)
+	}
+	return nil
+}
+
+func (p *ServiceProvider) checkServiceLiveness(pr *corev1.Probe, podIP string) {
+
+	initialDelay := time.Duration(pr.InitialDelaySeconds) * time.Second
+
+	quit := make(chan int)
+	go func() {
+		time.Sleep(initialDelay)
+		for {
+			err := p.Client.DoProbeCheck(pr, podIP)
+			if err != nil {
+				log.Printf("endpoint not ready: %s", err)
+			} else {
+				quit <- 0
+			}
+			time.Sleep(sleepTime * time.Second)
+		}
+	}()
+	<-quit
+	close(quit)
+
 }
 
 func generateServices(serviceName string, pod *corev1.Pod, globalTags []string) ([]consul.ServiceInstance, error) {
