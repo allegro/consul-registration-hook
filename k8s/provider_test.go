@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	testclient "k8s.io/client-go/kubernetes/fake"
 )
+
 func TestIfFailsIfKubernetesAPIFails(t *testing.T) {
 	client := &MockClient{}
 	client.client.On("GetPod", context.Background(), "", "").
@@ -872,7 +873,6 @@ func TestServiceIsAliveIfPodHasHTTPHandlerProbe(t *testing.T) {
 	provider.checkServiceLiveness(pr, podIP)
 	client.client.ExpectedCalls = nil
 }
-
 
 func TestServiceIsAliveIfPodHasTCPSocketProbe(t *testing.T) {
 

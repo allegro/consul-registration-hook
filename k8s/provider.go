@@ -157,11 +157,6 @@ func (p *ServiceProvider) Get(ctx context.Context) ([]consul.ServiceInstance, er
 		}
 	}
 
-	probe := p.getProbe(pod)
-	if probe != nil {
-		p.checkServiceLiveness(probe, pod.Status.PodIP)
-	}
-
 	return generateServices(serviceName, pod, globalTags)
 }
 
@@ -215,6 +210,29 @@ func (p *ServiceProvider) getPodWithRetry(ctx context.Context, client Client, po
 	}
 }
 
+func (p *ServiceProvider) CheckProbe(ctx context.Context) error {
+	client, err := p.client()
+	if err != nil {
+		return fmt.Errorf("unable create K8S API client: %s", err)
+	}
+
+	podNamespace := os.Getenv(podNamespaceEnvVar)
+	podName := os.Getenv(podNameEnvVar)
+
+	pod, err := client.GetPod(ctx, podNamespace, podName)
+	if err != nil {
+		return fmt.Errorf("unable to get pod data from API: %s", err)
+	}
+	probe := p.getProbe(pod)
+	if probe != nil {
+		if err := p.checkServiceLiveness(probe, pod.Status.PodIP); err != nil {
+			return err
+		}
+		return nil
+	}
+	return nil
+}
+
 func (p *ServiceProvider) getProbe(pod *corev1.Pod) *corev1.Probe {
 	container := pod.Spec.Containers[0]
 	if container.StartupProbe != nil {
@@ -263,29 +281,33 @@ func (p *ServiceProvider) getInitialDelay(probe *corev1.Probe) time.Duration {
 	if probe.InitialDelaySeconds != 0 {
 		return time.Duration(probe.InitialDelaySeconds) * time.Second
 	}
-	return time.Second * 1
+	return time.Second * 0
 }
 
-func (p *ServiceProvider) getPeriodSecond(probe *corev1.Probe) time.Duration {
+func (p *ServiceProvider) getPeriod(probe *corev1.Probe) time.Duration {
 	if probe.PeriodSeconds != 0 {
 		return time.Duration(probe.PeriodSeconds) * time.Second
 	}
 	return time.Second * 1
 }
 
-func (p *ServiceProvider) checkServiceLiveness(pr *corev1.Probe, podIP string) {
+func (p *ServiceProvider) checkServiceLiveness(pr *corev1.Probe, podIP string) error {
+	cli, err := p.client()
+	if err != nil {
+		return fmt.Errorf("unable create K8S API client: %s", err)
+	}
 
 	initialDelay := p.getInitialDelay(pr)
-	period := p.getPeriodSecond(pr)
+	period := p.getPeriod(pr)
 
 	log.Printf("witing until endpoint should be ready: %s", initialDelay)
 	time.Sleep(initialDelay)
 	for {
-		err := p.Client.DoProbeCheck(pr, podIP)
+		err := cli.DoProbeCheck(pr, podIP)
 		if err != nil {
 			log.Printf("endpoint not ready: %s", err)
 		} else {
-			return
+			return nil
 		}
 		time.Sleep(period)
 	}
