@@ -29,7 +29,6 @@ const (
 	lbaasPrefix                     = "lbaas:"
 	servicePortEnv                  = "PORT_SERVICE"
 	servicePortTemplate             = "service-port:%s"
-	sleepTime                       = 2
 )
 
 // Client is an interface for client to Kubernetes API.
@@ -227,21 +226,6 @@ func (p *ServiceProvider) getProbe(pod *corev1.Pod) *corev1.Probe {
 	return nil
 }
 
-func (p *ServiceProvider) getInitialDelay(pod *corev1.Pod) int32 {
-	container := pod.Spec.Containers[0]
-	if container.StartupProbe != nil {
-		if container.StartupProbe.InitialDelaySeconds > 0 {
-			return container.StartupProbe.InitialDelaySeconds
-		}
-	}
-	if container.ReadinessProbe != nil {
-		if container.ReadinessProbe.InitialDelaySeconds > 0 {
-			return container.ReadinessProbe.InitialDelaySeconds
-		}
-	}
-	return 0
-}
-
 func getPortFromProbe(probe *corev1.Probe) string {
 	if probe.HTTPGet != nil {
 		return probe.HTTPGet.Port.String()
@@ -275,26 +259,36 @@ func (c *defaultClient) DoProbeCheck(probe *corev1.Probe, podIP string) error {
 	return nil
 }
 
+func (p *ServiceProvider) getInitialDelay(probe *corev1.Probe) time.Duration {
+	if probe.InitialDelaySeconds != 0 {
+		return time.Duration(probe.InitialDelaySeconds) * time.Second
+	}
+	return time.Second * 1
+}
+
+func (p *ServiceProvider) getPeriodSecond(probe *corev1.Probe) time.Duration {
+	if probe.PeriodSeconds != 0 {
+		return time.Duration(probe.PeriodSeconds) * time.Second
+	}
+	return time.Second * 1
+}
+
 func (p *ServiceProvider) checkServiceLiveness(pr *corev1.Probe, podIP string) {
 
-	initialDelay := time.Duration(pr.InitialDelaySeconds) * time.Second
+	initialDelay := p.getInitialDelay(pr)
+	period := p.getPeriodSecond(pr)
 
-	quit := make(chan int)
-	go func() {
-		time.Sleep(initialDelay)
-		for {
-			err := p.Client.DoProbeCheck(pr, podIP)
-			if err != nil {
-				log.Printf("endpoint not ready: %s", err)
-			} else {
-				quit <- 0
-			}
-			time.Sleep(sleepTime * time.Second)
+	log.Printf("witing until endpoint should be ready: %s", initialDelay)
+	time.Sleep(initialDelay)
+	for {
+		err := p.Client.DoProbeCheck(pr, podIP)
+		if err != nil {
+			log.Printf("endpoint not ready: %s", err)
+		} else {
+			return
 		}
-	}()
-	<-quit
-	close(quit)
-
+		time.Sleep(period)
+	}
 }
 
 func generateServices(serviceName string, pod *corev1.Pod, globalTags []string) ([]consul.ServiceInstance, error) {
