@@ -89,6 +89,10 @@ var commands = []cli.Command{
 							log.Printf("Error deregistering services : %s", er)
 						}
 					}
+					err = provider.CheckProbe(context.Background())
+					if err != nil {
+						log.Printf("Error checking services liveness: %s", err)
+					}
 					return agent.Register(services)
 				},
 				Flags: []cli.Flag{

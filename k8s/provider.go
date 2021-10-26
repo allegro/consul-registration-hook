@@ -37,6 +37,8 @@ type Client interface {
 	GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error)
 	// GetFailureDomainTags returns current failure domain for pod
 	GetFailureDomainTags(ctx context.Context, pod *corev1.Pod) ([]string, error)
+	// DoProbeCheck check if service is alive
+	DoProbeCheck(pod *corev1.Probe, ip string) error
 }
 
 type defaultClient struct {
@@ -205,6 +207,109 @@ func (p *ServiceProvider) getPodWithRetry(ctx context.Context, client Client, po
 		finished = true
 		close(ch)
 		return nil, fmt.Errorf("could not get valid Pod data after %s", p.Timeout)
+	}
+}
+
+func (p *ServiceProvider) CheckProbe(ctx context.Context) error {
+	client, err := p.client()
+	if err != nil {
+		return fmt.Errorf("unable create K8S API client: %s", err)
+	}
+
+	podNamespace := os.Getenv(podNamespaceEnvVar)
+	podName := os.Getenv(podNameEnvVar)
+
+	pod, err := client.GetPod(ctx, podNamespace, podName)
+	if err != nil {
+		return fmt.Errorf("unable to get pod data from API: %s", err)
+	}
+	probe := p.getProbe(pod)
+	if probe != nil {
+		if err := p.checkServiceLiveness(probe, pod.Status.PodIP); err != nil {
+			return err
+		}
+		return nil
+	}
+	return nil
+}
+
+func (p *ServiceProvider) getProbe(pod *corev1.Pod) *corev1.Probe {
+	container := pod.Spec.Containers[0]
+	if container.StartupProbe != nil {
+		return container.StartupProbe
+	}
+	if container.ReadinessProbe != nil {
+		return container.ReadinessProbe
+	}
+	return nil
+}
+
+func getPortFromProbe(probe *corev1.Probe) string {
+	if probe.HTTPGet != nil {
+		return probe.HTTPGet.Port.String()
+	} else if probe.TCPSocket != nil {
+		return probe.TCPSocket.Port.String()
+	}
+	return ""
+}
+
+func getHTTPSchemaFromProbe(probe *corev1.Probe) string {
+	if probe.HTTPGet.Scheme != "" {
+		return "http"
+	}
+	if probe.HTTPGet.Scheme == "HTTPS" {
+		return "https"
+	}
+	return "http"
+}
+
+func (c *defaultClient) DoProbeCheck(probe *corev1.Probe, podIP string) error {
+	port := getPortFromProbe(probe)
+
+	if probe.HTTPGet != nil {
+		schema := getHTTPSchemaFromProbe(probe)
+		path := probe.HTTPGet.Path
+		url := fmt.Sprintf("%s://%s:%s%s", schema, podIP, port, path)
+		return doHTTPCheck(url)
+	} else if probe.TCPSocket != nil {
+		return doTCPCheck(podIP, port)
+	}
+	return nil
+}
+
+func (p *ServiceProvider) getInitialDelay(probe *corev1.Probe) time.Duration {
+	if probe.InitialDelaySeconds != 0 {
+		return time.Duration(probe.InitialDelaySeconds) * time.Second
+	}
+	return time.Second * 0
+}
+
+func (p *ServiceProvider) getPeriod(probe *corev1.Probe) time.Duration {
+	if probe.PeriodSeconds != 0 {
+		return time.Duration(probe.PeriodSeconds) * time.Second
+	}
+	return time.Second * 1
+}
+
+func (p *ServiceProvider) checkServiceLiveness(pr *corev1.Probe, podIP string) error {
+	cli, err := p.client()
+	if err != nil {
+		return fmt.Errorf("unable create K8S API client: %s", err)
+	}
+
+	initialDelay := p.getInitialDelay(pr)
+	period := p.getPeriod(pr)
+
+	log.Printf("witing until endpoint should be ready: %s", initialDelay)
+	time.Sleep(initialDelay)
+	for {
+		err := cli.DoProbeCheck(pr, podIP)
+		if err != nil {
+			log.Printf("endpoint not ready: %s", err)
+		} else {
+			return nil
+		}
+		time.Sleep(period)
 	}
 }
 

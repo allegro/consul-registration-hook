@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"sort"
 	"testing"
@@ -17,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	testclient "k8s.io/client-go/kubernetes/fake"
 )
 
@@ -529,6 +533,56 @@ func testPod() *corev1.Pod {
 	}
 }
 
+func testPodWithProbe() *corev1.Pod {
+	podIP := "192.0.2.2"
+	podName := "podName"
+	return &corev1.Pod{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Ports: []corev1.ContainerPort{},
+					ReadinessProbe: &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/status/ping",
+								Port: intstr.FromInt(3333),
+							},
+						},
+					},
+					StartupProbe: &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/status/ping",
+								Port: intstr.FromInt(3333),
+							},
+						},
+					},
+					LivenessProbe: &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/status/ping",
+								Port: intstr.FromInt(3333),
+							},
+						},
+					},
+				},
+				{
+					Name:  "sidecar",
+					Ports: []corev1.ContainerPort{},
+				},
+			},
+		},
+		Status: corev1.PodStatus{
+			PodIP: podIP,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      make(map[string]string),
+			Annotations: make(map[string]string),
+			Name:        podName,
+		},
+	}
+}
+
 func testNode() *corev1.Node {
 	labels := make(map[string]string)
 	labels["failure-domain.beta.kubernetes.io/region"] = "region1"
@@ -564,6 +618,14 @@ func (c *MockClient) GetFailureDomainTags(ctx context.Context, pod *corev1.Pod) 
 	}
 
 	return args.Get(0).([]string), args.Error(1)
+}
+
+func (c *MockClient) DoProbeCheck(pr *corev1.Probe, ip string) error {
+	args := c.client.Called(pr, ip)
+	if args.Get(0) == nil {
+		return args.Error(0)
+	}
+	return args.Error(0)
 }
 
 func TestGenerateServicesWithProperHealthCheck(t *testing.T) {
@@ -780,4 +842,158 @@ func TestShouldGenerateServiceIDsForDeregistration(t *testing.T) {
 
 	services = provider.GenerateSecured(context.Background(), servicesForRegistrationDouble)
 	assert.Len(t, services, 0)
+}
+
+func TestIfPodReturnsProbe(t *testing.T) {
+	pod := testPodWithProbe()
+	podIP := "192.0.2.2"
+	initialDelay := int32(10)
+
+	appContainerIndex := 0
+
+	pod.Status.PodIP = podIP
+	pod.Spec.Containers[appContainerIndex].ReadinessProbe.InitialDelaySeconds = initialDelay
+
+	pr := &corev1.Probe{
+		InitialDelaySeconds: 10,
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/status/ping",
+				Port: intstr.FromInt(3333),
+			},
+		},
+	}
+
+	client := getMockedClient(pod)
+	provider := ServiceProvider{
+		Client:  client,
+		Timeout: 1 * time.Second,
+	}
+
+	// probe -> StartupProbe
+	probe := provider.getProbe(pod)
+	require.NotEqual(t, pr, probe)
+
+	// probe -> ReadinessProbe
+	pod.Spec.Containers[0].StartupProbe = nil
+	probe = provider.getProbe(pod)
+	require.Equal(t, pr, probe)
+
+	// probe -> nil
+	pod.Spec.Containers[0].ReadinessProbe = nil
+	probe = provider.getProbe(pod)
+	require.Nil(t, probe)
+}
+
+func TestServiceIsAliveIfPodHasHTTPHandlerProbe(t *testing.T) {
+	pod := testPodWithProbe()
+	podIP := "127.0.0.1"
+
+	client := &MockClient{}
+	provider := ServiceProvider{
+		Client:  client,
+		Timeout: 1 * time.Second,
+	}
+	pod.Status.PodIP = podIP
+	pr := &corev1.Probe{
+		InitialDelaySeconds: 1,
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/status/ping",
+				Port: intstr.FromString("3333"),
+			},
+		},
+	}
+	client.client.On("DoProbeCheck", pr, podIP).
+		Return(errors.New("http error")).Twice().On("DoProbeCheck", pr, podIP).Return(nil)
+	provider.checkServiceLiveness(pr, podIP)
+	client.client.ExpectedCalls = nil
+}
+
+func TestServiceIsAliveIfPodHasTCPSocketProbe(t *testing.T) {
+
+	podIP := "127.0.0.1"
+	client := &MockClient{}
+
+	provider := ServiceProvider{
+		Client:  client,
+		Timeout: 1 * time.Second,
+	}
+	pr := &corev1.Probe{
+		InitialDelaySeconds: 1,
+		Handler: corev1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.FromString("10000"),
+			},
+		},
+	}
+	client.client.On("DoProbeCheck", pr, podIP).
+		Return(nil)
+	provider.checkServiceLiveness(pr, podIP)
+}
+
+func TestReturnsOfDoProbeCheckMethod(t *testing.T) {
+
+	clinet := &defaultClient{}
+	sp := ServiceProvider{
+		Client:  clinet,
+		Timeout: 1,
+	}
+	ip := "127.0.0.1"
+	path := "/status/ping"
+	pr := &corev1.Probe{
+		InitialDelaySeconds: 1,
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/status/ping",
+			},
+		},
+	}
+
+	testServer := httptest.NewServer(http.HandlerFunc(
+		func(res http.ResponseWriter, req *http.Request) {
+			switch req.RequestURI {
+			case path:
+				res.Header().Set("Content-Type", "text/html")
+			default:
+				http.Error(res, "", http.StatusNotFound)
+				return
+			}
+		},
+	),
+	)
+	defer testServer.Close()
+
+	// matching ports
+	_, port, _ := net.SplitHostPort(testServer.Listener.Addr().String())
+	pr.Handler.HTTPGet.Port = intstr.FromString(port)
+	assert.NoError(t, sp.Client.DoProbeCheck(pr, ip))
+
+	// different ports
+	pr.Handler.HTTPGet.Port = intstr.FromString("1111")
+	assert.Error(t, sp.Client.DoProbeCheck(pr, ip))
+
+	port = "40000"
+	pr = &corev1.Probe{
+		InitialDelaySeconds: 1,
+		Handler: corev1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.FromString("40000"),
+			},
+		},
+	}
+
+	l, err := net.Listen("tcp", ip+":"+port)
+	if err != nil {
+		fmt.Println("Error listening:", err.Error())
+		os.Exit(1)
+	}
+	defer l.Close()
+
+	// matching ports
+	assert.NoError(t, sp.Client.DoProbeCheck(pr, ip))
+
+	// different ports
+	pr.Handler.TCPSocket.Port = intstr.FromString("10000")
+	assert.Error(t, sp.Client.DoProbeCheck(pr, ip))
 }
