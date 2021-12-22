@@ -4,7 +4,7 @@ VERSION := $(shell git describe --tags || echo "unknown")
 ARCH      := $(shell go env GOARCH)
 OS        := $(shell go env GOOS)
 BUILD_DIR := build
-LDFLAGS   := -X main.version=$(VERSION)
+LDFLAGS   := -X main.version=$(VERSION) -s -w
 
 CURRENT_DIR = $(shell pwd)
 BIN = $(CURRENT_DIR)/bin

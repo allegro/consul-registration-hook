@@ -936,8 +936,9 @@ func TestReturnsOfDoProbeCheckMethod(t *testing.T) {
 
 	clinet := &defaultClient{}
 	sp := ServiceProvider{
-		Client:  clinet,
-		Timeout: 1,
+		Client:             clinet,
+		Timeout:            1,
+		HealthCheckTimeout: 30,
 	}
 	ip := "127.0.0.1"
 	path := "/status/ping"
@@ -996,4 +997,34 @@ func TestReturnsOfDoProbeCheckMethod(t *testing.T) {
 	// different ports
 	pr.Handler.TCPSocket.Port = intstr.FromString("10000")
 	assert.Error(t, sp.Client.DoProbeCheck(pr, ip))
+
+}
+
+func TestConsulHookGlobalTimeout(t *testing.T) {
+	pod := testPodWithProbe()
+	podIP := "127.0.0.1"
+
+	client := &MockClient{}
+	provider := ServiceProvider{
+		Client:             client,
+		Timeout:            1 * time.Second,
+		HealthCheckTimeout: 5 * time.Second,
+	}
+	pod.Status.PodIP = podIP
+	pr := &corev1.Probe{
+		InitialDelaySeconds: 1,
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/status/ping",
+				Port: intstr.FromString("3333"),
+			},
+		},
+	}
+	client.client.On("DoProbeCheck", pr, podIP).
+		Return(errors.New("http error"))
+	err := provider.checkServiceLiveness(pr, podIP)
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf("endpoint not ready: healthcheck timeout: %s", provider.HealthCheckTimeout), err.Error())
+	}
+	client.client.ExpectedCalls = nil
 }
