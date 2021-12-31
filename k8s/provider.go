@@ -83,8 +83,9 @@ func (c *defaultClient) GetFailureDomainTags(ctx context.Context, pod *corev1.Po
 // ServiceProvider is responsible for providing services that should be registered
 // in Consul discovery service.
 type ServiceProvider struct {
-	Client  Client
-	Timeout time.Duration
+	Client             Client
+	Timeout            time.Duration
+	HealthCheckTimeout time.Duration
 }
 
 // GenerateSecured generates list of postfixed Consul services for deregistration
@@ -302,14 +303,29 @@ func (p *ServiceProvider) checkServiceLiveness(pr *corev1.Probe, podIP string) e
 
 	log.Printf("witing until endpoint should be ready: %s", initialDelay)
 	time.Sleep(initialDelay)
-	for {
-		err := cli.DoProbeCheck(pr, podIP)
-		if err != nil {
-			log.Printf("endpoint not ready: %s", err)
-		} else {
-			return nil
+
+	ch := make(chan bool, 1)
+	finished := false
+	go func() {
+		for !finished {
+			err := cli.DoProbeCheck(pr, podIP)
+			if err != nil {
+				log.Printf("endpoint not ready: %s", err)
+			} else {
+				ch <- true
+			}
+			time.Sleep(period)
 		}
-		time.Sleep(period)
+	}()
+	select {
+	case <-ch:
+		finished = true
+		close(ch)
+		return nil
+	case <-time.After(p.HealthCheckTimeout):
+		finished = true
+		close(ch)
+		return fmt.Errorf("endpoint not ready: healthcheck timeout: %s", p.HealthCheckTimeout)
 	}
 }
 

@@ -38,6 +38,10 @@ const (
 	envVarGetPodTimeout  = "KUBERNETES_GET_POD_TIMEOUT"
 	defaultGetPodTimeout = 10 * time.Second
 	consulACLFileFlag    = "consul-acl-file"
+
+	flagHealthCheckTimeout    = "health-check-timeout"
+	envVarHealthCheckTimeout  = "KUBERNETES_HEALTH_CHECK_TIMEOUT"
+	defaultHealthCheckTimeout = 300 * time.Second
 )
 
 var commands = []cli.Command{
@@ -71,7 +75,8 @@ var commands = []cli.Command{
 				Action: func(c *cli.Context) error {
 					log.Print("Registering services using data from Kubernetes API")
 					provider := k8s.ServiceProvider{
-						Timeout: c.Duration(flagGetPodTimeout),
+						Timeout:            c.Duration(flagGetPodTimeout),
+						HealthCheckTimeout: c.Duration(flagHealthCheckTimeout),
 					}
 					// TODO(medzin): Add support for timeout here
 					services, err := provider.Get(context.Background())
@@ -91,7 +96,7 @@ var commands = []cli.Command{
 					}
 					err = provider.CheckProbe(context.Background())
 					if err != nil {
-						log.Printf("Error checking services liveness: %s", err)
+						return fmt.Errorf("Error checking services liveness: %s", err)
 					}
 					return agent.Register(services)
 				},
@@ -101,6 +106,12 @@ var commands = []cli.Command{
 						Usage:  "change timeout for fetching pod info",
 						EnvVar: envVarGetPodTimeout,
 						Value:  defaultGetPodTimeout,
+					},
+					cli.DurationFlag{
+						Name:   flagHealthCheckTimeout,
+						Usage:  "change consul hook timeout",
+						EnvVar: envVarHealthCheckTimeout,
+						Value:  defaultHealthCheckTimeout,
 					},
 				},
 			},
