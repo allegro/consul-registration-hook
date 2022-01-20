@@ -34,7 +34,7 @@ const (
 // Client is an interface for client to Kubernetes API.
 type Client interface {
 	// GetPod returns current pod data.
-	GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error)
+	GetPod(ctx context.Context, podNamespace string, podName string) (*corev1.Pod, error)
 	// GetFailureDomainTags returns current failure domain for pod
 	GetFailureDomainTags(ctx context.Context, pod *corev1.Pod) ([]string, error)
 	// DoProbeCheck check if service is alive
@@ -45,10 +45,10 @@ type defaultClient struct {
 	k8sClient kubernetes.Interface
 }
 
-func (c *defaultClient) GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error) {
+func (c *defaultClient) GetPod(ctx context.Context, namespace string, name string) (*corev1.Pod, error) {
 	pod, err := c.k8sClient.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("unable to get pod data from API: %s", err)
+		return nil, fmt.Errorf("unable to get pod(%s) in namespace (%s) data from API: %s", pod, namespace, err)
 	}
 
 	return pod, nil
@@ -115,6 +115,20 @@ func (p *ServiceProvider) GenerateSecured(ctx context.Context, services []consul
 		deregisterServices = append(deregisterServices, srv)
 	}
 	return deregisterServices
+}
+
+func (p *ServiceProvider) IsPodTerminating(ctx context.Context) (bool, error) {
+	podNamespace := os.Getenv(podNamespaceEnvVar)
+	podName := os.Getenv(podNameEnvVar)
+	pod, err := p.Client.GetPod(ctx, podNamespace, podName)
+	if err != nil {
+		return true, err
+	}
+	// inspired by kubectl: https://github.com/kubernetes/kubernetes/blob/v1.2.0/pkg/kubectl/resource_printer.go#L561-L590
+	if pod.DeletionTimestamp != nil {
+		return true, nil
+	}
+	return false, nil
 }
 
 // Get returns slice of services that are configured to be registered in Consul
@@ -216,7 +230,6 @@ func (p *ServiceProvider) CheckProbe(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable create K8S API client: %s", err)
 	}
-
 	podNamespace := os.Getenv(podNamespaceEnvVar)
 	podName := os.Getenv(podNameEnvVar)
 
