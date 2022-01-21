@@ -7,12 +7,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/urfave/cli"
-
 	"github.com/allegro/consul-registration-hook/consul"
 	"github.com/allegro/consul-registration-hook/hookflags"
 	"github.com/allegro/consul-registration-hook/k8s"
 	"github.com/allegro/consul-registration-hook/mesos"
+	"github.com/urfave/cli"
 )
 
 const (
@@ -47,14 +46,14 @@ const (
 var commands = []cli.Command{
 	{
 		Name: "register",
-		Usage: "register service into Consul discovery service.\n\n" +
+		Usage: "Register service into Consul discovery service.\n\n" +
 			"Consul env variables:\n" +
 			"- CONSUL_HTTP_ADDR - addr used to register services,\n" +
 			"- DISCOVERY_CONSUL_HOST - host used to query for services.\n",
 		Subcommands: []cli.Command{
 			{
 				Name:  "mesos",
-				Usage: "register using data from Mesos Agent API",
+				Usage: "Register using data from Mesos Agent API",
 				Action: func(c *cli.Context) error {
 					log.Print("Registering services using data from Mesos API")
 					provider := mesos.ServiceProvider{}
@@ -71,7 +70,7 @@ var commands = []cli.Command{
 			},
 			{
 				Name:  "k8s",
-				Usage: "register using data from Kubernetes API",
+				Usage: "Register using data from Kubernetes API",
 				Action: func(c *cli.Context) error {
 					log.Print("Registering services using data from Kubernetes API")
 					provider := k8s.ServiceProvider{
@@ -96,9 +95,18 @@ var commands = []cli.Command{
 					}
 					err = provider.CheckProbe(context.Background())
 					if err != nil {
-						return fmt.Errorf("Error checking services liveness: %s", err)
+						return fmt.Errorf("error checking services liveness: %s", err)
 					}
-					return agent.Register(services)
+					podTerminating, err := provider.IsPodTerminating(context.Background())
+					if err != nil {
+						log.Printf("Error checking service Termination state: %s", err)
+					}
+					if podTerminating {
+						log.Printf("Wont register, pod in terminating state")
+					} else {
+						return agent.Register(services)
+					}
+					return nil
 				},
 				Flags: []cli.Flag{
 					cli.DurationFlag{
@@ -117,7 +125,7 @@ var commands = []cli.Command{
 			},
 			{
 				Name:  "cli",
-				Usage: "register using data from cli",
+				Usage: "Register using data from cli",
 				Action: func(c *cli.Context) error {
 					log.Print("Registering services using data from cli. Set CONSUL_HTTP_ADDR env to appropriate agent.")
 					provider := hookflags.ServiceProvider{
@@ -168,7 +176,7 @@ var commands = []cli.Command{
 	},
 	{
 		Name:  "deregister",
-		Usage: "deregister service from Consul discovery service",
+		Usage: "Deregister service from Consul discovery service",
 		Subcommands: []cli.Command{
 			{
 				Name:  "mesos",
@@ -189,7 +197,7 @@ var commands = []cli.Command{
 			},
 			{
 				Name:  "k8s",
-				Usage: "deregister using data from Kubernetes API",
+				Usage: "Deregister using data from Kubernetes API",
 				Action: func(c *cli.Context) error {
 					log.Print("Deregistering services using data from Kubernetes API")
 					provider := k8s.ServiceProvider{
