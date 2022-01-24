@@ -118,9 +118,14 @@ func (p *ServiceProvider) GenerateSecured(ctx context.Context, services []consul
 }
 
 func (p *ServiceProvider) IsPodTerminating(ctx context.Context) (bool, error) {
+	client, err := p.client()
+	if err != nil {
+		return true, fmt.Errorf("unable create K8S API client: %s", err)
+	}
+
 	podNamespace := os.Getenv(podNamespaceEnvVar)
 	podName := os.Getenv(podNameEnvVar)
-	pod, err := p.Client.GetPod(ctx, podNamespace, podName)
+	pod, err := client.GetPod(ctx, podNamespace, podName)
 	if err != nil {
 		return true, err
 	}

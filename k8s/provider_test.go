@@ -932,6 +932,42 @@ func TestServiceIsAliveIfPodHasTCPSocketProbe(t *testing.T) {
 	provider.checkServiceLiveness(pr, podIP)
 }
 
+func TestTerminatingServiceIsFailedToRegister(t *testing.T) {
+	pod := testPod()
+	now := metav1.NewTime(time.Now())
+	pod.ObjectMeta.DeletionTimestamp = &now
+	client := &MockClient{}
+
+	provider := ServiceProvider{
+		Client:  client,
+		Timeout: 1 * time.Second,
+	}
+
+	client.client.On("GetPod", context.Background(), "", "").
+		Return(pod, nil).Times(3)
+	isTerminating, err := provider.IsPodTerminating(context.Background())
+	assert.NoError(t, err)
+	assert.True(t, isTerminating)
+}
+
+func TestTerminatingServiceReturnsErrorAndTerminationTrueOnFailedApiCall(t *testing.T) {
+	pod := testPod()
+	now := metav1.NewTime(time.Now())
+	pod.ObjectMeta.DeletionTimestamp = &now
+	client := &MockClient{}
+
+	provider := ServiceProvider{
+		Client:  client,
+		Timeout: 1 * time.Second,
+	}
+
+	client.client.On("GetPod", context.Background(), "", "").
+		Return(pod, fmt.Errorf("failed to call k8s api")).Times(3)
+	isTerminating, err := provider.IsPodTerminating(context.Background())
+	assert.Error(t, err)
+	assert.True(t, isTerminating)
+}
+
 func TestReturnsOfDoProbeCheckMethod(t *testing.T) {
 
 	clinet := &defaultClient{}
