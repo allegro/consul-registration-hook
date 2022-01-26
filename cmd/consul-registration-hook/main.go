@@ -272,6 +272,6 @@ func main() {
 
 	log.Printf("consul-registration-hook (version: %s)", version)
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Execution failed: %s", err)
 	}
 }

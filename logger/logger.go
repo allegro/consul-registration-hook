@@ -23,11 +23,12 @@ type Msg struct {
 }
 
 type KibanaWriter struct {
-	pod       string
-	namespace string
-	variant   string
-	scid      string
-	netWrite  net.Conn
+	pod           string
+	namespace     string
+	variant       string
+	scid          string
+	netWrite      net.Conn
+	loggerAddress string
 }
 
 func NewKibanaWriter() (*KibanaWriter, error) {
@@ -39,19 +40,15 @@ func NewKibanaWriter() (*KibanaWriter, error) {
 		loggerAddress = defaultLoggerAddress
 	}
 
-	netWrite, err := net.Dial("tcp", loggerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("error: %s", err)
-	}
 	pod := os.Getenv("KUBERNETES_POD_NAME")
 	namespace := os.Getenv("KUBERNETES_POD_NAMESPACE")
 	variant := os.Getenv("VARIANT_NAME")
 	return &KibanaWriter{
-		netWrite:  netWrite,
-		pod:       pod,
-		namespace: namespace,
-		variant:   variant,
-		scid:      scid,
+		loggerAddress: loggerAddress,
+		pod:           pod,
+		namespace:     namespace,
+		variant:       variant,
+		scid:          scid,
 	}, nil
 }
 
@@ -63,12 +60,18 @@ func (k KibanaWriter) Write(p []byte) (n int, err error) {
 		Namespace: k.namespace,
 		Variant:   k.variant,
 	}
+	netWrite, err := net.Dial("tcp", k.loggerAddress)
+	if err != nil {
+		return 0, fmt.Errorf("error: %s", err)
+	}
+	defer netWrite.Close()
+
 	writeTemplate, err := json.Marshal(msg)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	return k.netWrite.Write(writeTemplate)
+	return netWrite.Write(writeTemplate)
 }
 
 func ConfigureLogger() {
@@ -76,5 +79,5 @@ func ConfigureLogger() {
 	if err != nil {
 		log.Printf("Unable to initialize kibana logger: %s", err)
 	}
-	log.SetOutput(io.MultiWriter(kibanaWriter, os.Stdout))
+	log.SetOutput(io.MultiWriter(os.Stdout, kibanaWriter))
 }
