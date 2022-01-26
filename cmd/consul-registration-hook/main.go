@@ -10,6 +10,7 @@ import (
 	"github.com/allegro/consul-registration-hook/consul"
 	"github.com/allegro/consul-registration-hook/hookflags"
 	"github.com/allegro/consul-registration-hook/k8s"
+	"github.com/allegro/consul-registration-hook/logger"
 	"github.com/allegro/consul-registration-hook/mesos"
 	"github.com/urfave/cli"
 )
@@ -55,6 +56,7 @@ var commands = []cli.Command{
 				Name:  "mesos",
 				Usage: "Register using data from Mesos Agent API",
 				Action: func(c *cli.Context) error {
+					logger.ConfigureLogger()
 					log.Print("Registering services using data from Mesos API")
 					provider := mesos.ServiceProvider{}
 					// TODO(medzin): Add support for timeout here
@@ -72,6 +74,7 @@ var commands = []cli.Command{
 				Name:  "k8s",
 				Usage: "Register using data from Kubernetes API",
 				Action: func(c *cli.Context) error {
+					logger.ConfigureLogger()
 					log.Print("Registering services using data from Kubernetes API")
 					provider := k8s.ServiceProvider{
 						Timeout:            c.Duration(flagGetPodTimeout),
@@ -182,6 +185,7 @@ var commands = []cli.Command{
 				Name:  "mesos",
 				Usage: "deregister using data from Mesos Agent API",
 				Action: func(c *cli.Context) error {
+					logger.ConfigureLogger()
 					log.Print("Deregistering services using data from Mesos API")
 					provider := mesos.ServiceProvider{}
 					// TODO(medzin): Add support for timeout here
@@ -199,6 +203,7 @@ var commands = []cli.Command{
 				Name:  "k8s",
 				Usage: "Deregister using data from Kubernetes API",
 				Action: func(c *cli.Context) error {
+					logger.ConfigureLogger()
 					log.Print("Deregistering services using data from Kubernetes API")
 					provider := k8s.ServiceProvider{
 						Timeout: c.Duration(flagGetPodTimeout),
