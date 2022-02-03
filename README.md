@@ -11,7 +11,7 @@ Allegro [executor][4].
 
 ## Why hook uses synchronous communication
 
-Synchronous communication with Consul allows to achieve a gracefull shutdown of
+aSynchronous communication with Consul allows to achieve a gracefull shutdown of
 old application version during the deployment. New instances are considered
 running and healthy when they are registered succesfully in discovery service.
 Old instances are first deregistered and then killed with configurable delay,
